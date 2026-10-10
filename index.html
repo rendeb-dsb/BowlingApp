@@ -94,7 +94,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v9</div>
+    <div class="version">b1v10</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -128,7 +128,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v9</p>
+      <p><strong>Application version:</strong> b1v10</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -184,7 +184,7 @@
       </form>
     </section>
   </main>
-  <div class="footer">Bowling · Initial visual prototype · b1v9</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v10</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -269,37 +269,97 @@
     });
     document.getElementById('laneForm').addEventListener('submit', event => event.preventDefault());
 
-    // Telephone mask: only digits occupy the ten editable positions; punctuation is fixed.
+    // Telephone mask: punctuation is fixed and each underscore is an editable digit slot.
+    // Intercept edits before the browser can replace or shift the mask characters.
     const telephone = document.getElementById('laneTelephone');
+    const PHONE_MASK = '(___) ___-____';
+    const PHONE_SLOTS = [1, 2, 3, 6, 7, 8, 10, 11, 12, 13];
     const phoneDigits = () => telephone.value.replace(/\D/g, '').slice(0, 10);
-    function formatPhone(digits) {
-      return '(' + digits.slice(0,3).padEnd(3, '_') + ') ' +
-        digits.slice(3,6).padEnd(3, '_') + '-' + digits.slice(6,10).padEnd(4, '_');
+    function phoneMask(digits) {
+      const chars = PHONE_MASK.split('');
+      PHONE_SLOTS.forEach((position, i) => { chars[position] = digits[i] || '_'; });
+      return chars.join('');
+    }
+    function nextPhoneSlot(position) {
+      return PHONE_SLOTS.find(slot => slot >= position) ?? PHONE_MASK.length;
+    }
+    function previousPhoneSlot(position) {
+      for (let i = PHONE_SLOTS.length - 1; i >= 0; i--) {
+        if (PHONE_SLOTS[i] < position) return PHONE_SLOTS[i];
+      }
+      return PHONE_SLOTS[0];
+    }
+    function applyPhoneEdit(kind, text = '') {
+      let chars = (telephone.value || PHONE_MASK).split('');
+      if (chars.length !== PHONE_MASK.length) chars = PHONE_MASK.split('');
+      const start = telephone.selectionStart ?? 0;
+      const end = telephone.selectionEnd ?? start;
+      let selectedSlots = PHONE_SLOTS.filter(slot => slot >= start && slot < end);
+      let caret;
+      if (kind === 'insert') {
+        const digits = text.replace(/\D/g, '');
+        if (!digits) return;
+        let slotIndex = selectedSlots.length ? PHONE_SLOTS.indexOf(selectedSlots[0]) : PHONE_SLOTS.findIndex(slot => slot >= start);
+        if (slotIndex < 0) slotIndex = PHONE_SLOTS.length;
+        // Typing over a selection starts at its first editable position.
+        for (let i = 0; i < digits.length && slotIndex + i < PHONE_SLOTS.length; i++) {
+          chars[PHONE_SLOTS[slotIndex + i]] = digits[i];
+        }
+        caret = PHONE_SLOTS[Math.min(slotIndex + digits.length, PHONE_SLOTS.length - 1)] ?? PHONE_MASK.length;
+        if (slotIndex + digits.length >= PHONE_SLOTS.length) caret = PHONE_MASK.length;
+      } else {
+        let slotsToClear = selectedSlots;
+        if (!slotsToClear.length) {
+          const slot = kind === 'backward' ? previousPhoneSlot(start + 1) : nextPhoneSlot(start);
+          if (kind === 'backward' && slot >= start) return;
+          if (slot < PHONE_SLOTS.length + 100 && PHONE_SLOTS.includes(slot)) slotsToClear = [slot];
+        }
+        if (!slotsToClear.length) return;
+        slotsToClear.forEach(slot => { chars[slot] = '_'; });
+        caret = slotsToClear[0];
+      }
+      telephone.value = chars.join('');
+      telephone.setSelectionRange(caret, caret);
     }
     telephone.addEventListener('focus', () => {
-      if (!telephone.value) telephone.value = '(___) ___-____';
-    });
-    telephone.addEventListener('input', () => {
-      const digits = phoneDigits();
-      telephone.value = digits.length ? formatPhone(digits) : '(___) ___-____';
-      try {
-        const firstBlank = telephone.value.indexOf('_');
-        telephone.setSelectionRange(firstBlank < 0 ? telephone.value.length : firstBlank, firstBlank < 0 ? telephone.value.length : firstBlank);
-      } catch (_) {}
+      if (!telephone.value) telephone.value = PHONE_MASK;
+      const firstBlank = telephone.value.indexOf('_');
+      const position = firstBlank < 0 ? PHONE_MASK.length : firstBlank;
+      telephone.setSelectionRange(position, position);
     });
     telephone.addEventListener('keydown', event => {
-      if (event.key === 'Backspace' || event.key === 'Delete') {
-        // Reformat on input after browser handles the key; punctuation is restored.
-        setTimeout(() => {
-          const digits = phoneDigits();
-          telephone.value = digits.length ? formatPhone(digits) : '(___) ___-____';
-        }, 0);
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault();
+        applyPhoneEdit('insert', event.key);
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        applyPhoneEdit(event.key === 'Backspace' ? 'backward' : 'forward');
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Tab' || event.key === 'Home' || event.key === 'End') {
+        // Allow ordinary navigation; edits remain restricted to digit slots.
+      } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
       }
+    });
+    telephone.addEventListener('beforeinput', event => {
+      if (event.inputType === 'insertText' || event.inputType === 'insertCompositionText') {
+        event.preventDefault();
+        applyPhoneEdit('insert', event.data || '');
+      } else if (event.inputType === 'deleteContentBackward' || event.inputType === 'deleteContentForward') {
+        event.preventDefault();
+        applyPhoneEdit(event.inputType === 'deleteContentBackward' ? 'backward' : 'forward');
+      } else if (event.inputType === 'insertFromPaste') {
+        event.preventDefault();
+        applyPhoneEdit('insert', event.data || '');
+      }
+    });
+    telephone.addEventListener('paste', event => {
+      event.preventDefault();
+      applyPhoneEdit('insert', event.clipboardData?.getData('text') || '');
     });
     telephone.addEventListener('blur', () => {
       if (phoneDigits().length === 0) telephone.value = '';
+      else telephone.value = phoneMask(phoneDigits());
     });
-
     const stateInput = document.getElementById('laneState');
     stateInput.addEventListener('input', () => {
       stateInput.value = stateInput.value.replace(/[^a-z]/gi, '').toUpperCase().slice(0, 2);

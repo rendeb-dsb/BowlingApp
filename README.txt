@@ -1,4 +1,4 @@
-Bowling PWA — b1v9
+Bowling PWA — b1v10
 
 This version adds the Lanes menu and the visual-only Add Lanes Management screen.
 - Lanes opens the empty list display with “No records to display.”
@@ -16,3 +16,7 @@ Form layout update: City is on its own row. State (renamed from St) and Zip are 
 Form alignment update: the Name, City, and State input controls now share the same left edge as the Telephone input. Their labels are right-justified to that alignment.
 
 Form layout update: the Add Lanes Management fields now use a borderless two-column table. Labels share a right-justified first column, and all main text boxes align in the second column with consistent cell padding. Order remains beside Telephone, and Zip remains beside State.
+
+Telephone input update: the phone mask now treats underscores as editable digit positions and keeps parentheses, space, and hyphen fixed. Typing, deletion, and digit pasting are handled without allowing punctuation to be edited.
+
+Database scope: this version remains a visual prototype; no database has been added yet. The next implementation step can introduce BowlingDB with only the Lanes table, then add further tables incrementally after each schema is tested.
