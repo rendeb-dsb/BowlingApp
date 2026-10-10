@@ -35,6 +35,44 @@
     .settings-panel p { margin:8px 0; line-height:1.5; }
     .status-note { margin-top:18px; padding:12px; border-left:4px solid var(--blue); background:#eef6fb; border-radius:4px; }
     .footer { font-size:11px; color:#526577; text-align:center; padding:5px 8px max(5px, env(safe-area-inset-bottom)); }
+
+    .menu-button.active { background:#c9dce9; border-color:#8eafc5; font-weight:700; }
+    #lanesButton { margin-left:0; }
+    .display-screen { display:none; width:100%; align-self:stretch; }
+    #displayArea { align-items:stretch; justify-content:flex-start; }
+    .lanes-empty { width:100%; text-align:center; padding:28px 12px; color:#33495b; }
+    .screen-titlebar { width:100%; display:flex; align-items:center; gap:12px; padding:2px 0 14px; border-bottom:1px solid var(--line); margin-bottom:14px; }
+    .screen-titlebar h2 { font-size:22px; font-weight:700; margin:0; color:var(--navy); }
+    .title-actions { margin-left:auto; display:flex; gap:8px; }
+    .action-button { border:1px solid #aebfcd; border-radius:5px; padding:7px 15px; font-size:14px; background:#f7fafc; color:#1d3447; cursor:pointer; }
+    .action-button.primary { background:var(--navy); color:white; border-color:var(--navy); }
+    .lane-form { width:100%; }
+    .form-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px 18px; margin:0 0 16px; }
+    .field { display:inline-flex; align-items:center; gap:0; min-width:0; }
+    .field label { white-space:nowrap; font-size:15px; }
+    .field input { height:34px; border:1px solid #9eafbd; border-radius:4px; padding:5px 8px; font:16px Arial,Helvetica,sans-serif; background:white; color:var(--ink); min-width:0; }
+    .field input:focus { outline:2px solid #8cbde0; outline-offset:1px; }
+    #laneName, #laneAddress1, #laneAddress2 { width:min(520px, calc(100vw - 145px)); }
+    #laneTelephone { width:148px; font-variant-numeric:tabular-nums; }
+    #laneOrder { width:25px; padding-left:2px; padding-right:2px; }
+    #laneCity { width:min(250px, calc(100vw - 130px)); }
+    #laneState { width:30px; padding-left:4px; padding-right:2px; text-transform:uppercase; }
+    #laneZip { width:82px; }
+    .lane-list-wrap { width:100%; overflow:auto; }
+    .lane-list { border-collapse:collapse; width:100%; min-width:680px; background:white; }
+    .lane-list th, .lane-list td { padding:8px 7px; border:1px solid #cbd5df; text-align:left; font-size:13px; }
+    .lane-list th { background:#e7eef4; font-weight:700; }
+    .lane-list th:first-child, .lane-list td:first-child { width:34px; text-align:center; }
+    .lane-list input[type=radio] { margin:0; }
+    @media (max-width:480px) {
+      .screen-titlebar h2 { font-size:20px; }
+      .screen-titlebar { gap:6px; }
+      .title-actions { gap:5px; }
+      .action-button { padding:7px 10px; }
+      .form-row { gap:10px 12px; margin-bottom:14px; }
+      .field label { font-size:14px; }
+    }
+
     @media (max-width:480px) {
       .topbar { grid-template-columns:58px 1fr 28px; padding-left:7px; padding-right:7px; }
       h1 { font-size:19px; }
@@ -48,7 +86,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v4</div>
+    <div class="version">b1v5</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -71,6 +109,7 @@
         <button role="menuitem" data-action="Quit">Quit</button>
       </div>
     </div>
+    <button class="menu-button" id="lanesButton" aria-pressed="false">Lanes</button>
   </nav>
 
   <main id="displayArea">
@@ -81,11 +120,43 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v4</p>
+      <p><strong>Application version:</strong> b1v5</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
+    <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
+      <div class="lanes-empty">No records to display.</div>
+    </section>
+    <section class="display-screen" id="addLaneScreen" aria-label="Add Lanes Management">
+      <div class="screen-titlebar">
+        <h2>Add Lanes Management</h2>
+        <div class="title-actions">
+          <button class="action-button primary" id="saveLaneButton" type="button">Save</button>
+          <button class="action-button" id="cancelLaneButton" type="button">Cancel</button>
+        </div>
+      </div>
+      <form class="lane-form" id="laneForm" autocomplete="off">
+        <div class="form-row">
+          <div class="field"><label for="laneName">Name: </label><input id="laneName" name="Name" type="text"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label for="laneTelephone">Telephone: </label><input id="laneTelephone" name="Telephone" type="text" inputmode="numeric" placeholder="(___) ___-____" maxlength="14" aria-label="Telephone number"></div>
+          <div class="field"><label for="laneOrder">Order: </label><input id="laneOrder" name="Order" type="text" inputmode="numeric" maxlength="6" aria-label="Order"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label for="laneAddress1">Address 1: </label><input id="laneAddress1" name="Address1" type="text"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label for="laneAddress2">Address 2: </label><input id="laneAddress2" name="Address2" type="text"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label for="laneCity">City: </label><input id="laneCity" name="City" type="text"></div>
+          <div class="field"><label for="laneState">St: </label><input id="laneState" name="State" type="text" value="FL" maxlength="2" inputmode="text"></div>
+          <div class="field"><label for="laneZip">Zip: </label><input id="laneZip" name="Zip" type="text" inputmode="numeric" maxlength="5"></div>
+        </div>
+      </form>
+    </section>
   </main>
-  <div class="footer">Bowling · Initial visual prototype · b1v4</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v5</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -93,20 +164,50 @@
     const settingsButton = document.getElementById('settingsButton');
     const homePanel = document.getElementById('homePanel');
     const settingsPanel = document.getElementById('settingsPanel');
+    const lanesButton = document.getElementById('lanesButton');
+    const lanesListScreen = document.getElementById('lanesListScreen');
+    const addLaneScreen = document.getElementById('addLaneScreen');
 
     function closeMenu() {
       actionsMenu.classList.remove('open');
       actionsButton.setAttribute('aria-expanded', 'false');
     }
-    function showHome() {
+    function hideScreens() {
+      homePanel.style.display = 'none';
       settingsPanel.style.display = 'none';
+      lanesListScreen.style.display = 'none';
+      addLaneScreen.style.display = 'none';
+    }
+    function setLanesActive(active) {
+      lanesButton.classList.toggle('active', active);
+      lanesButton.setAttribute('aria-pressed', String(active));
+    }
+    function showHome() {
+      hideScreens();
       homePanel.style.display = 'flex';
+      setLanesActive(false);
       closeMenu();
     }
     function showSettings() {
-      homePanel.style.display = 'none';
+      hideScreens();
       settingsPanel.style.display = 'block';
+      setLanesActive(false);
       closeMenu();
+    }
+    function showLanesList() {
+      hideScreens();
+      lanesListScreen.style.display = 'block';
+      setLanesActive(true);
+      closeMenu();
+    }
+    function showAddLane() {
+      hideScreens();
+      addLaneScreen.style.display = 'block';
+      setLanesActive(true);
+      closeMenu();
+      document.getElementById('laneForm').reset();
+      document.getElementById('laneState').value = 'FL';
+      document.getElementById('laneTelephone').value = '';
     }
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -115,11 +216,16 @@
     });
     settingsButton.addEventListener('click', showSettings);
     document.getElementById('homeButton').addEventListener('click', showHome);
+    lanesButton.addEventListener('click', showLanesList);
+    document.getElementById('cancelLaneButton').addEventListener('click', showLanesList);
+
     document.querySelectorAll('[data-action]').forEach(button => {
       button.addEventListener('click', () => {
         const action = button.dataset.action;
         closeMenu();
-        if (action === 'Quit') {
+        if (action === 'Add') {
+          showAddLane();
+        } else if (action === 'Quit') {
           alert('To close Bowling, use your device’s app switcher or browser controls.');
         } else if (action === 'Import' || action === 'Export') {
           alert(action + ' will be implemented when the BowlingDB database is added.');
@@ -128,6 +234,55 @@
         }
       });
     });
+
+    // Save is intentionally visual-only until BowlingDB is implemented.
+    document.getElementById('saveLaneButton').addEventListener('click', (event) => {
+      event.preventDefault();
+    });
+    document.getElementById('laneForm').addEventListener('submit', event => event.preventDefault());
+
+    // Telephone mask: only digits occupy the ten editable positions; punctuation is fixed.
+    const telephone = document.getElementById('laneTelephone');
+    const phoneDigits = () => telephone.value.replace(/\D/g, '').slice(0, 10);
+    function formatPhone(digits) {
+      return '(' + digits.slice(0,3).padEnd(3, '_') + ') ' +
+        digits.slice(3,6).padEnd(3, '_') + '-' + digits.slice(6,10).padEnd(4, '_');
+    }
+    telephone.addEventListener('focus', () => {
+      if (!telephone.value) telephone.value = '(___) ___-____';
+    });
+    telephone.addEventListener('input', () => {
+      const digits = phoneDigits();
+      telephone.value = digits.length ? formatPhone(digits) : '(___) ___-____';
+      try {
+        const firstBlank = telephone.value.indexOf('_');
+        telephone.setSelectionRange(firstBlank < 0 ? telephone.value.length : firstBlank, firstBlank < 0 ? telephone.value.length : firstBlank);
+      } catch (_) {}
+    });
+    telephone.addEventListener('keydown', event => {
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        // Reformat on input after browser handles the key; punctuation is restored.
+        setTimeout(() => {
+          const digits = phoneDigits();
+          telephone.value = digits.length ? formatPhone(digits) : '(___) ___-____';
+        }, 0);
+      }
+    });
+    telephone.addEventListener('blur', () => {
+      if (phoneDigits().length === 0) telephone.value = '';
+    });
+
+    const stateInput = document.getElementById('laneState');
+    stateInput.addEventListener('input', () => {
+      stateInput.value = stateInput.value.replace(/[^a-z]/gi, '').toUpperCase().slice(0, 2);
+    });
+    document.getElementById('laneOrder').addEventListener('input', event => {
+      event.target.value = event.target.value.replace(/\D/g, '');
+    });
+    document.getElementById('laneZip').addEventListener('input', event => {
+      event.target.value = event.target.value.replace(/\D/g, '').slice(0, 5);
+    });
+
     document.addEventListener('click', (event) => {
       if (!event.target.closest('.menu-wrap')) closeMenu();
     });
