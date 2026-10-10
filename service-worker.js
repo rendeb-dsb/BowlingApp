@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bowling-b1v8';
+const CACHE_NAME = 'bowling-b1v9';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/bowling.svg', './images/bowling-home.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)));

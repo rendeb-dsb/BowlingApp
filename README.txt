@@ -1,4 +1,4 @@
-Bowling PWA — b1v8
+Bowling PWA — b1v9
 
 This version adds the Lanes menu and the visual-only Add Lanes Management screen.
 - Lanes opens the empty list display with “No records to display.”
@@ -14,3 +14,5 @@ Startup graphic sizing update: the complete graphic now scales responsively to f
 Form layout update: City is on its own row. State (renamed from St) and Zip are on the next row, with State leftmost. The State input uses the same standard 34px control height and vertical alignment as the Telephone and Address inputs.
 
 Form alignment update: the Name, City, and State input controls now share the same left edge as the Telephone input. Their labels are right-justified to that alignment.
+
+Form layout update: the Add Lanes Management fields now use a borderless two-column table. Labels share a right-justified first column, and all main text boxes align in the second column with consistent cell padding. Order remains beside Telephone, and Zip remains beside State.
