@@ -29,7 +29,7 @@
     .dropdown hr { border:0; border-top:1px solid #d7e0e7; margin:4px 2px; }
     main { flex:1; min-height:0; display:flex; justify-content:center; align-items:center; padding:12px; overflow:auto; }
     .home-panel { width:100%; min-height:100%; display:flex; align-items:center; justify-content:center; }
-    .home-art { width:90%; height:75%; max-height:75%; object-fit:contain; display:block; }
+    .home-art { width:90%; height:75%; max-width:100%; max-height:100%; object-fit:contain; display:block; }
     .settings-panel { display:none; width:min(680px, 94%); background:white; border:1px solid var(--line); border-radius:12px; padding:24px; box-shadow:0 4px 18px #16324f12; }
     .settings-panel h2 { margin:0 0 12px; color:var(--navy); font-size:22px; }
     .settings-panel p { margin:8px 0; line-height:1.5; }
@@ -48,7 +48,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v1</div>
+    <div class="version">b1v2</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -75,66 +75,17 @@
 
   <main id="displayArea">
     <section class="home-panel" id="homePanel" aria-label="Bowling home screen">
-      <svg class="home-art" viewBox="0 0 900 620" role="img" aria-label="Cute bowling pins and a bowling ball" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#fffdf5"/><stop offset="1" stop-color="#e5f4ff"/>
-          </linearGradient>
-          <linearGradient id="ball" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#64c6e8"/><stop offset="1" stop-color="#2872b8"/>
-          </linearGradient>
-          <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
-            <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#183650" flood-opacity=".17"/>
-          </filter>
-        </defs>
-        <rect x="15" y="15" width="870" height="590" rx="44" fill="url(#bg)" stroke="#d1e5f2" stroke-width="3"/>
-        <circle cx="105" cy="100" r="10" fill="#f6ca63"/><circle cx="790" cy="115" r="14" fill="#f6ca63"/>
-        <path d="M65 475 Q450 420 835 475 L835 535 Q450 575 65 535Z" fill="#d5e7f0"/>
-        <path d="M90 495 Q450 455 810 495" fill="none" stroke="#b2d1e1" stroke-width="4" stroke-linecap="round"/>
-        <!-- Left pin -->
-        <g filter="url(#shadow)" transform="translate(245 190) rotate(-8)">
-          <path d="M-29 0 C-34 -28 -14 -48 -14 -71 C-14 -91 14 -91 14 -71 C14 -48 34 -28 29 0 L42 98 Q42 128 0 133 Q-42 128 -42 98Z" fill="#fff" stroke="#d9e2e8" stroke-width="4"/>
-          <path d="M-29 -6 Q0 5 29 -6 L34 10 Q0 24 -34 10Z" fill="#ef5361"/>
-          <path d="M-27 9 Q0 20 31 9 L35 24 Q0 37 -31 24Z" fill="#ef5361"/>
-          <circle cx="-10" cy="53" r="4" fill="#3c5264"/><circle cx="10" cy="53" r="4" fill="#3c5264"/>
-          <path d="M-10 67 Q0 77 10 67" fill="none" stroke="#3c5264" stroke-width="3" stroke-linecap="round"/>
-        </g>
-        <!-- Center pin -->
-        <g filter="url(#shadow)" transform="translate(450 155)">
-          <path d="M-31 0 C-37 -30 -15 -50 -15 -74 C-15 -95 15 -95 15 -74 C15 -50 37 -30 31 0 L45 112 Q45 145 0 150 Q-45 145 -45 112Z" fill="#fff" stroke="#d9e2e8" stroke-width="4"/>
-          <path d="M-32 -8 Q0 5 32 -8 L37 9 Q0 24 -37 9Z" fill="#ef5361"/>
-          <path d="M-30 10 Q0 23 34 10 L38 27 Q0 41 -34 27Z" fill="#ef5361"/>
-          <circle cx="-11" cy="60" r="4.5" fill="#3c5264"/><circle cx="11" cy="60" r="4.5" fill="#3c5264"/>
-          <path d="M-11 75 Q0 86 11 75" fill="none" stroke="#3c5264" stroke-width="3.5" stroke-linecap="round"/>
-        </g>
-        <!-- Right pin -->
-        <g filter="url(#shadow)" transform="translate(650 195) rotate(8)">
-          <path d="M-29 0 C-34 -28 -14 -48 -14 -71 C-14 -91 14 -91 14 -71 C14 -48 34 -28 29 0 L42 98 Q42 128 0 133 Q-42 128 -42 98Z" fill="#fff" stroke="#d9e2e8" stroke-width="4"/>
-          <path d="M-29 -6 Q0 5 29 -6 L34 10 Q0 24 -34 10Z" fill="#ef5361"/>
-          <path d="M-27 9 Q0 20 31 9 L35 24 Q0 37 -31 24Z" fill="#ef5361"/>
-          <circle cx="-10" cy="53" r="4" fill="#3c5264"/><circle cx="10" cy="53" r="4" fill="#3c5264"/>
-          <path d="M-10 67 Q0 77 10 67" fill="none" stroke="#3c5264" stroke-width="3" stroke-linecap="round"/>
-        </g>
-        <!-- Ball -->
-        <g filter="url(#shadow)">
-          <circle cx="450" cy="430" r="92" fill="url(#ball)" stroke="#205f98" stroke-width="4"/>
-          <ellipse cx="420" cy="395" rx="32" ry="18" fill="#ffffff" opacity=".18" transform="rotate(-35 420 395)"/>
-          <circle cx="428" cy="407" r="9" fill="#164d7b"/><circle cx="457" cy="397" r="9" fill="#164d7b"/><circle cx="449" cy="430" r="9" fill="#164d7b"/>
-        </g>
-        <path d="M160 170 l8 18 19 2 -14 13 4 19 -17 -10 -17 10 4 -19 -14 -13 19 -2Z" fill="#f6ca63"/>
-        <path d="M725 300 l6 14 15 2 -11 10 3 15 -13 -8 -13 8 3 -15 -11 -10 15 -2Z" fill="#8ecfba"/>
-        <text x="450" y="565" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#16324f">Let's go bowling!</text>
-      </svg>
+      <img class="home-art" src="./images/bowling-home.png" alt="Colorful bowling alley with a smiling blue bowling ball and bowling pins">
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v1</p>
+      <p><strong>Application version:</strong> b1v2</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
   </main>
-  <div class="footer">Bowling · Initial visual prototype · b1v1</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v2</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
