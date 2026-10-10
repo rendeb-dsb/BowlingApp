@@ -1,4 +1,4 @@
-Bowling PWA — b1v10
+Bowling PWA — b1v11
 
 This version adds the Lanes menu and the visual-only Add Lanes Management screen.
 - Lanes opens the empty list display with “No records to display.”
@@ -20,3 +20,5 @@ Form layout update: the Add Lanes Management fields now use a borderless two-col
 Telephone input update: the phone mask now treats underscores as editable digit positions and keeps parentheses, space, and hyphen fixed. Typing, deletion, and digit pasting are handled without allowing punctuation to be edited.
 
 Database scope: this version remains a visual prototype; no database has been added yet. The next implementation step can introduce BowlingDB with only the Lanes table, then add further tables incrementally after each schema is tested.
+
+Telephone deletion fix: repeated Backspace now clears successive digit positions from right to left. Fixed punctuation remains unchanged, and Backspace at the beginning of the mask does not remove punctuation.

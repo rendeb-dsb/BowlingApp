@@ -94,7 +94,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v10</div>
+    <div class="version">b1v11</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -128,7 +128,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v10</p>
+      <p><strong>Application version:</strong> b1v11</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -184,7 +184,7 @@
       </form>
     </section>
   </main>
-  <div class="footer">Bowling · Initial visual prototype · b1v10</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v11</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -283,12 +283,6 @@
     function nextPhoneSlot(position) {
       return PHONE_SLOTS.find(slot => slot >= position) ?? PHONE_MASK.length;
     }
-    function previousPhoneSlot(position) {
-      for (let i = PHONE_SLOTS.length - 1; i >= 0; i--) {
-        if (PHONE_SLOTS[i] < position) return PHONE_SLOTS[i];
-      }
-      return PHONE_SLOTS[0];
-    }
     function applyPhoneEdit(kind, text = '') {
       let chars = (telephone.value || PHONE_MASK).split('');
       if (chars.length !== PHONE_MASK.length) chars = PHONE_MASK.split('');
@@ -310,9 +304,17 @@
       } else {
         let slotsToClear = selectedSlots;
         if (!slotsToClear.length) {
-          const slot = kind === 'backward' ? previousPhoneSlot(start + 1) : nextPhoneSlot(start);
-          if (kind === 'backward' && slot >= start) return;
-          if (slot < PHONE_SLOTS.length + 100 && PHONE_SLOTS.includes(slot)) slotsToClear = [slot];
+          // Backspace removes the editable digit immediately before the caret.
+          // Use a strict less-than comparison so repeated Backspace continues
+          // moving left after each deletion instead of stopping at the same slot.
+          let slot;
+          if (kind === 'backward') {
+            const precedingSlots = PHONE_SLOTS.filter(position => position < start);
+            slot = precedingSlots.length ? precedingSlots[precedingSlots.length - 1] : null;
+          } else {
+            slot = PHONE_SLOTS.find(position => position >= start) ?? null;
+          }
+          if (slot !== null) slotsToClear = [slot];
         }
         if (!slotsToClear.length) return;
         slotsToClear.forEach(slot => { chars[slot] = '_'; });
