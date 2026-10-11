@@ -115,7 +115,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v19</div>
+    <div class="version">b1v21</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -151,7 +151,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v19</p>
+      <p><strong>Application version:</strong> b1v21</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -237,6 +237,7 @@
         <table class="lane-fields" aria-label="League details"><tbody>
           <tr><td class="label-cell"><label for="leagueName">League Name:</label></td><td class="control-cell"><input id="leagueName" name="LeagueName" type="text"></td></tr>
           <tr><td class="label-cell"><label for="leagueStartDate">Start Date:</label></td><td class="control-cell"><input id="leagueStartDate" name="StartDate" type="date"></td></tr>
+          <tr><td class="label-cell"><label for="leagueEndDate">End Date:</label></td><td class="control-cell"><input id="leagueEndDate" name="EndDate" type="date"></td></tr>
           <tr><td class="label-cell"><label for="leagueActive">Active:</label></td><td class="control-cell"><label class="active-checkbox"><input id="leagueActive" name="Active" type="checkbox" checked> Active</label></td></tr>
           <tr><td class="label-cell"><label for="leagueLocation">Location:</label></td><td class="control-cell"><select id="leagueLocation" name="Location" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a bowling center</option></select></td></tr>
         </tbody></table>
@@ -250,7 +251,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v19</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v21</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -470,8 +471,14 @@
     async function loadLeagueLocations(selectedLaneId = '') {
       const select = document.getElementById('leagueLocation');
       const lanes = await dbCall('listLocations');
-      select.innerHTML = '<option value="">Select a bowling center</option>' + lanes.map(lane => `<option value="${Number(lane.LaneId)}">${escapeHtml(lane.Name)}</option>`).join('');
+      select.innerHTML = lanes.length
+        ? '<option value="">Select a bowling center</option>' + lanes.map(lane => `<option value="${Number(lane.LaneId)}">${escapeHtml(lane.Name)}</option>`).join('')
+        : '<option value="">No bowling centers available — add one under Lanes</option>';
+      select.disabled = lanes.length === 0;
       select.value = selectedLaneId === null || selectedLaneId === undefined ? '' : String(selectedLaneId);
+      const message = document.getElementById('leagueFormMessage');
+      if (!lanes.length) { showLeagueFormMessage('No bowling centers are available. Cancel this form, open Lanes, and add a bowling center before adding a league.'); }
+      else if (message.textContent.includes('No bowling centers are available.')) clearLeagueFormMessage();
     }
     async function prepareLeagueForm(mode) {
       hideScreens(); leagueFormScreen.style.display = 'block'; currentEntity = 'Leagues';
@@ -491,6 +498,7 @@
         editingLeagueId = leagueId; await prepareLeagueForm('change');
         document.getElementById('leagueName').value = league.LeagueName || '';
         document.getElementById('leagueStartDate').value = league.StartDate || '';
+        document.getElementById('leagueEndDate').value = league.EndDate || '';
         document.getElementById('leagueActive').checked = Number(league.Active) === 1;
         await loadLeagueLocations(league.Location);
       } catch (error) { showAppMessage('Unable to load the selected league: ' + error.message); }
@@ -508,8 +516,8 @@
       const leagues = await dbCall('listLeagues');
       const content = document.getElementById('leaguesListContent');
       if (!leagues.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('leaguesDbStatus').textContent = 'BowlingDB ready'; return; }
-      const body = leagues.map(league => `<tr><td class="lane-radio"><input type="radio" name="selectedLeague" value="${Number(league.LeagueId)}" aria-label="Select league ${Number(league.LeagueId)}"></td><td>${escapeHtml(league.LeagueName)}</td><td>${escapeHtml(league.StartDate || '')}</td><td>${Number(league.Active) === 1 ? 'Yes' : 'No'}</td><td>${escapeHtml(league.LocationName)}</td></tr>`).join('');
-      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Leagues"><thead><tr><th aria-label="Select"></th><th>League Name</th><th>Start Date</th><th>Active</th><th>Location</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Location shows the bowling center associated with each league.</p>`;
+      const body = leagues.map(league => `<tr><td class="lane-radio"><input type="radio" name="selectedLeague" value="${Number(league.LeagueId)}" aria-label="Select league ${Number(league.LeagueId)}"></td><td>${escapeHtml(league.LeagueName)}</td><td>${escapeHtml(league.StartDate || '')}</td><td>${escapeHtml(league.EndDate || '')}</td><td>${Number(league.Active) === 1 ? 'Yes' : 'No'}</td><td>${escapeHtml(league.LocationName)}</td></tr>`).join('');
+      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Leagues"><thead><tr><th aria-label="Select"></th><th>League Name</th><th>Start Date</th><th>End Date</th><th>Active</th><th>Location</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Location shows the bowling center associated with each league.</p>`;
       document.getElementById('leaguesDbStatus').textContent = 'BowlingDB ready';
     }
     function showLeagueFormMessage(message) { const el = document.getElementById('leagueFormMessage'); el.textContent = message; el.classList.add('show'); }
@@ -518,15 +526,17 @@
       event.preventDefault(); clearLeagueFormMessage();
       const name = document.getElementById('leagueName').value.trim();
       const date = document.getElementById('leagueStartDate').value;
+      const endDate = document.getElementById('leagueEndDate').value;
       const active = document.getElementById('leagueActive').checked ? 1 : 0;
       const location = document.getElementById('leagueLocation').value;
       if (!name) return showLeagueFormMessage('League Name is required.');
       if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return showLeagueFormMessage('Start Date must use yyyy-mm-dd format.');
+      if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return showLeagueFormMessage('End Date must use yyyy-mm-dd format.');
       if (!location) return showLeagueFormMessage('Location is required. Select a bowling center.');
       if (!dbReady) return showLeagueFormMessage('BowlingDB is not ready yet. Please try again in a moment.');
       const btn = document.getElementById('saveLeagueButton'); btn.disabled = true; btn.textContent = 'Saving…';
       try {
-        const payload = { LeagueName: name, StartDate: date || null, Active: active, Location: Number(location) };
+        const payload = { LeagueName: name, StartDate: date || null, EndDate: endDate || null, Active: active, Location: Number(location) };
         if (editingLeagueId === null) await dbCall('insertLeague', payload); else await dbCall('updateLeague', { LeagueId: editingLeagueId, ...payload });
         editingLeagueId = null; await showLeaguesList();
       } catch (error) {
@@ -583,7 +593,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v19', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v21', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

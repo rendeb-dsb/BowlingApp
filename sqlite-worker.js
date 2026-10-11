@@ -2,12 +2,17 @@
 import sqlite3InitModule from 'https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.53.4-build1/dist/index.mjs';
 let db = null;
 let poolUtil = null;
+let initializationPromise = null;
+let sqliteVersion = null;
 function rows(sql, bind = []) {
   const out = [];
   db.exec({ sql, bind, rowMode: 'object', callback: row => out.push(row) });
   return out;
 }
-async function initialize() {
+async function initializeOnce() {
+  // Reuse the already-open database in this worker. OPFS SyncAccessHandles
+  // cannot be opened twice for the same file by the same active context.
+  if (db) return { version: sqliteVersion };
   const sqlite3 = await sqlite3InitModule();
   poolUtil = await sqlite3.installOpfsSAHPoolVfs({ name: 'bowling-opfs-sahpool' });
   db = new poolUtil.OpfsSAHPoolDb('/BowlingDB.sqlite3');
@@ -33,11 +38,29 @@ async function initialize() {
     LeagueId INTEGER PRIMARY KEY AUTOINCREMENT,
     LeagueName TEXT NOT NULL CHECK(length(trim(LeagueName)) > 0),
     StartDate TEXT CHECK(StartDate IS NULL OR (length(StartDate)=10 AND StartDate GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]')),
+    EndDate TEXT CHECK(EndDate IS NULL OR (length(EndDate)=10 AND EndDate GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]')),
     Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1)),
     Location INTEGER NOT NULL,
     FOREIGN KEY (Location) REFERENCES Lanes(LaneId) ON DELETE RESTRICT
   );`);
-  return { version: sqlite3.version.libVersion };
+  // Upgrade existing b1v20 databases without removing saved league records.
+  const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
+  if (!leagueColumns.includes('EndDate')) {
+    db.exec("ALTER TABLE Leagues ADD COLUMN EndDate TEXT CHECK(EndDate IS NULL OR (length(EndDate)=10 AND EndDate GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'))");
+  }
+  sqliteVersion = sqlite3.version.libVersion;
+  return { version: sqliteVersion };
+}
+function initialize() {
+  if (db) return Promise.resolve({ version: sqliteVersion });
+  if (!initializationPromise) {
+    initializationPromise = initializeOnce().catch(error => {
+      // Permit a safe retry after a failed initialization attempt.
+      initializationPromise = null;
+      throw error;
+    });
+  }
+  return initializationPromise;
 }
 self.onmessage = async event => {
   const { id, type, data: requestPayload } = event.data || {};
@@ -89,17 +112,17 @@ self.onmessage = async event => {
       const locationRows = rows('SELECT LaneId, Name FROM Lanes ORDER BY Name COLLATE NOCASE, LaneId');
       self.postMessage({ id, ok: true, data: locationRows });
     } else if (type === 'listLeagues') {
-      const leagueRows = rows('SELECT Leagues.LeagueId, Leagues.LeagueName, Leagues.StartDate, Leagues.Active, Leagues.Location, Lanes.Name AS LocationName FROM Leagues JOIN Lanes ON Lanes.LaneId = Leagues.Location ORDER BY Leagues.LeagueName COLLATE NOCASE, Leagues.LeagueId');
+      const leagueRows = rows('SELECT Leagues.LeagueId, Leagues.LeagueName, Leagues.StartDate, Leagues.EndDate, Leagues.Active, Leagues.Location, Lanes.Name AS LocationName FROM Leagues JOIN Lanes ON Lanes.LaneId = Leagues.Location ORDER BY Leagues.LeagueName COLLATE NOCASE, Leagues.LeagueId');
       self.postMessage({ id, ok: true, data: leagueRows });
     } else if (type === 'getLeague') {
-      const leagueRecord = rows('SELECT LeagueId, LeagueName, StartDate, Active, Location FROM Leagues WHERE LeagueId = ?', [requestPayload.LeagueId])[0] || null;
+      const leagueRecord = rows('SELECT LeagueId, LeagueName, StartDate, EndDate, Active, Location FROM Leagues WHERE LeagueId = ?', [requestPayload.LeagueId])[0] || null;
       self.postMessage({ id, ok: true, data: leagueRecord });
     } else if (type === 'insertLeague') {
-      db.exec({ sql: 'INSERT INTO Leagues (LeagueName, StartDate, Active, Location) VALUES (?, ?, ?, ?)', bind: [requestPayload.LeagueName, requestPayload.StartDate, requestPayload.Active, requestPayload.Location] });
+      db.exec({ sql: 'INSERT INTO Leagues (LeagueName, StartDate, EndDate, Active, Location) VALUES (?, ?, ?, ?, ?)', bind: [requestPayload.LeagueName, requestPayload.StartDate, requestPayload.EndDate, requestPayload.Active, requestPayload.Location] });
       const leagueId = db.selectValue('SELECT last_insert_rowid()');
       self.postMessage({ id, ok: true, data: { LeagueId: leagueId } });
     } else if (type === 'updateLeague') {
-      db.exec({ sql: 'UPDATE Leagues SET LeagueName=?, StartDate=?, Active=?, Location=? WHERE LeagueId=?', bind: [requestPayload.LeagueName, requestPayload.StartDate, requestPayload.Active, requestPayload.Location, requestPayload.LeagueId] });
+      db.exec({ sql: 'UPDATE Leagues SET LeagueName=?, StartDate=?, EndDate=?, Active=?, Location=? WHERE LeagueId=?', bind: [requestPayload.LeagueName, requestPayload.StartDate, requestPayload.EndDate, requestPayload.Active, requestPayload.Location, requestPayload.LeagueId] });
       self.postMessage({ id, ok: true, data: { LeagueId: requestPayload.LeagueId, changes: db.changes() } });
     } else if (type === 'deleteLeague') {
       db.exec({ sql: 'DELETE FROM Leagues WHERE LeagueId = ?', bind: [requestPayload.LeagueId] });

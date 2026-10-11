@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 17 (b1v19)
+Bowling PWA — Build 1 Version 17 (b1v21)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -32,12 +32,12 @@ Package layout
 - images/bowling-home.png
 
 
-b1v19 correction:
+b1v21 correction:
 - Change screen selected-lane retrieval uses requestPayload and laneRecord variables, avoiding the reported temporal-dead-zone error.
-- The SQLite worker URL is versioned (?v=b1v19) and explicitly precached so an older cached worker script is not reused.
+- The SQLite worker URL is versioned (?v=b1v21) and explicitly precached so an older cached worker script is not reused.
 
 
-b1v19 changes
+b1v21 changes
 - Actions > Delete is active on the Lanes list.
 - Without a selected lane, shows 'Please select a row to delete.' with OK.
 - With a selected lane, asks 'Are you sure you want to delete this record?' with Yes and No.
@@ -46,7 +46,7 @@ b1v19 changes
 - All popup dialogs retain the title 'The Bowling App says:'.
 
 
-b1v19 Bowlers table
+b1v21 Bowlers table
 - Adds the Bowlers table to the existing BowlingDB without dropping or recreating Lanes.
 - Fields: BowlerId INTEGER PRIMARY KEY AUTOINCREMENT; FirstName TEXT NOT NULL; LastName TEXT NOT NULL; Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0,1)).
 - Adds Bowlers menu and list with First Name, Last Name, and Active (Yes/No); BowlerId remains hidden.
@@ -57,12 +57,12 @@ b1v19 Bowlers table
 - Existing Lanes records and table are retained.
 
 
-b1v19 Bowlers list layout update
+b1v21 Bowlers list layout update
 - Column order is radio button, Active, First Name, Last Name.
 - First Name and Last Name columns have fixed, narrower widths (120px each) to reduce the list width.
 
 
-Build 1 Version 19 (b1v19) - Leagues
+Build 1 Version 19 (b1v21) - Leagues
 - Adds Leagues table to existing BowlingDB without dropping Lanes or Bowlers.
 - LeagueId INTEGER PRIMARY KEY AUTOINCREMENT.
 - LeagueName TEXT NOT NULL.
@@ -74,3 +74,11 @@ Build 1 Version 19 (b1v19) - Leagues
 - Location dropdown shows Lanes.Name and stores Lanes.LaneId.
 - Lanes referenced by a league cannot be deleted until that league is removed or reassigned.
 - Popup title convention remains “The Bowling App says:”.
+
+
+Build 1 Version 20 (b1v21) - Leagues updates
+- Adds optional EndDate to the Leagues table, stored in yyyy-mm-dd format like StartDate.
+- End Date appears immediately after Start Date on the Add/Change form and in the Leagues list.
+- Existing BowlingDB databases are upgraded by adding EndDate only when it is missing; existing Lanes, Bowlers, and Leagues records are retained.
+- The Location dropdown is populated from the Lanes table. If no bowling centers exist, it displays a clear message and the form explains that a bowling center must first be added under Lanes.
+- If the dropdown is empty, open Lanes and use Actions > Add to create a bowling center; it will then appear as a Location option.
