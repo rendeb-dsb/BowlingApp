@@ -115,7 +115,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v21</div>
+    <div class="version">b1v22</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -141,6 +141,7 @@
     <button class="menu-button" id="lanesButton" aria-pressed="false">Lanes</button>
     <button class="menu-button" id="bowlersButton" aria-pressed="false">Bowlers</button>
     <button class="menu-button" id="leaguesButton" aria-pressed="false">Leagues</button>
+    <button class="menu-button" id="teamsButton" aria-pressed="false">Teams</button>
   </nav>
 
   <main id="displayArea">
@@ -151,7 +152,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v21</p>
+      <p><strong>Application version:</strong> b1v22</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -243,6 +244,21 @@
         </tbody></table>
       </form>
     </section>
+    <section class="display-screen" id="teamsListScreen" aria-label="Teams list">
+      <div class="db-status" id="teamsDbStatus">Opening BowlingDB…</div>
+      <div id="teamsListContent"><div class="lanes-empty">No records to display.</div></div>
+    </section>
+    <section class="display-screen" id="teamFormScreen" aria-label="Team Management">
+      <div class="screen-titlebar"><h2 id="teamFormTitle">Add Team Management</h2><div class="title-actions"><button class="action-button primary" id="saveTeamButton" type="button">Save</button><button class="action-button" id="cancelTeamButton" type="button">Cancel</button></div></div>
+      <div class="form-message" id="teamFormMessage" role="alert"></div>
+      <form class="lane-form" id="teamForm" autocomplete="off">
+        <table class="lane-fields" aria-label="Team details"><tbody>
+          <tr><td class="label-cell"><label for="teamName">Name:</label></td><td class="control-cell"><input id="teamName" name="Name" type="text" required></td></tr>
+          <tr><td class="label-cell"><label for="teamLeagueId">League:</label></td><td class="control-cell"><select id="teamLeagueId" name="LeagueId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a league</option></select></td></tr>
+          <tr><td class="label-cell"><label for="teamActive">Active:</label></td><td class="control-cell"><label class="active-checkbox"><input id="teamActive" name="Active" type="checkbox" checked> Active</label></td></tr>
+        </tbody></table>
+      </form>
+    </section>
   </main>
   <div class="app-message-backdrop" id="appMessageBackdrop" role="presentation">
     <section class="app-message" role="alertdialog" aria-modal="true" aria-labelledby="appMessageTitle" aria-describedby="appMessageText">
@@ -251,7 +267,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v21</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v22</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -262,16 +278,20 @@
     const lanesButton = document.getElementById('lanesButton');
     const bowlersButton = document.getElementById('bowlersButton');
     const leaguesButton = document.getElementById('leaguesButton');
+    const teamsButton = document.getElementById('teamsButton');
     const lanesListScreen = document.getElementById('lanesListScreen');
     const addLaneScreen = document.getElementById('addLaneScreen');
     const bowlersListScreen = document.getElementById('bowlersListScreen');
     const bowlerFormScreen = document.getElementById('bowlerFormScreen');
     const leaguesListScreen = document.getElementById('leaguesListScreen');
     const leagueFormScreen = document.getElementById('leagueFormScreen');
+    const teamsListScreen = document.getElementById('teamsListScreen');
+    const teamFormScreen = document.getElementById('teamFormScreen');
     let currentEntity = 'Lanes';
     let editingLaneId = null;
     let editingBowlerId = null;
     let editingLeagueId = null;
+    let editingTeamId = null;
     const messageBackdrop = document.getElementById('appMessageBackdrop');
     const messageText = document.getElementById('appMessageText');
     let messageOkCallback = null;
@@ -321,6 +341,8 @@
       bowlerFormScreen.style.display = 'none';
       leaguesListScreen.style.display = 'none';
       leagueFormScreen.style.display = 'none';
+      teamsListScreen.style.display = 'none';
+      teamFormScreen.style.display = 'none';
     }
     function setLanesActive(active) {
       lanesButton.classList.toggle('active', active);
@@ -334,18 +356,22 @@
       leaguesButton.classList.toggle('active', active);
       leaguesButton.setAttribute('aria-pressed', String(active));
     }
+    function setTeamsActive(active) {
+      teamsButton.classList.toggle('active', active);
+      teamsButton.setAttribute('aria-pressed', String(active));
+    }
     function showHome() {
       hideScreens();
       homePanel.style.display = 'flex';
       setLanesActive(false);
-      setBowlersActive(false); setLeaguesActive(false);
+      setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false);
       closeMenu();
     }
     function showSettings() {
       hideScreens();
       settingsPanel.style.display = 'block';
       setLanesActive(false);
-      setBowlersActive(false); setLeaguesActive(false);
+      setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false);
       closeMenu();
     }
     async function showLanesList() {
@@ -353,7 +379,7 @@
       hideScreens();
       lanesListScreen.style.display = 'block';
       setLanesActive(true);
-      setBowlersActive(false); setLeaguesActive(false);
+      setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false);
       closeMenu();
       if (dbReady) {
         try { await refreshLanes(); }
@@ -365,7 +391,7 @@
       hideScreens();
       addLaneScreen.style.display = 'block';
       setLanesActive(true);
-      setBowlersActive(false); setLeaguesActive(false);
+      setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false);
       currentEntity = 'Lanes';
       closeMenu();
       document.querySelector('#addLaneScreen .screen-titlebar h2').textContent = mode === 'change' ? 'Change - Lane Management' : 'Add Lanes Management';
@@ -431,11 +457,11 @@
 
     async function showBowlersList() {
       currentEntity = 'Bowlers'; hideScreens(); bowlersListScreen.style.display = 'block';
-      setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); closeMenu();
+      setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); setTeamsActive(false); closeMenu();
       if (dbReady) { try { await refreshBowlers(); } catch (error) { document.getElementById('bowlersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
     }
     function prepareBowlerForm(mode) {
-      hideScreens(); bowlerFormScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); currentEntity = 'Bowlers'; closeMenu();
+      hideScreens(); bowlerFormScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); setTeamsActive(false); currentEntity = 'Bowlers'; closeMenu();
       document.getElementById('bowlerFormTitle').textContent = mode === 'change' ? 'Change - Bowler Management' : 'Add Bowler Management';
       document.getElementById('bowlerForm').reset(); document.getElementById('bowlerActive').checked = true; clearBowlerFormMessage();
     }
@@ -460,7 +486,7 @@
       showAppConfirm('Are you sure you want to delete this record?', async () => {
         try { await dbCall('deleteBowler', { BowlerId: bowlerId }); await refreshBowlers(); document.getElementById('bowlersDbStatus').textContent = 'BowlingDB ready · Bowler deleted'; await showBowlersList(); }
         catch (error) { showAppMessage('Unable to delete the selected bowler: ' + error.message); }
-      }, () => { bowlersListScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); });
+      }, () => { bowlersListScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); setTeamsActive(false); });
     }
 
     async function showLeaguesList() {
@@ -547,6 +573,79 @@
     document.getElementById('leagueForm').addEventListener('submit', event => event.preventDefault());
     document.getElementById('cancelLeagueButton').addEventListener('click', () => { editingLeagueId = null; document.getElementById('leagueForm').reset(); document.getElementById('leagueActive').checked = true; clearLeagueFormMessage(); showLeaguesList(); });
 
+    async function showTeamsList() {
+      currentEntity = 'Teams'; hideScreens(); teamsListScreen.style.display = 'block';
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(true); closeMenu();
+      if (dbReady) { try { await refreshTeams(); } catch (error) { document.getElementById('teamsDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
+    }
+    async function loadTeamLeagues(selectedId = '') {
+      const select = document.getElementById('teamLeagueId');
+      const leagues = await dbCall('listTeamLeagues');
+      select.innerHTML = leagues.length ? '<option value="">Select a league</option>' + leagues.map(league => `<option value="${Number(league.LeagueId)}">${escapeHtml(league.LeagueName)}</option>`).join('') : '<option value="">No leagues available — add one under Leagues</option>';
+      select.disabled = leagues.length === 0;
+      select.value = selectedId === null || selectedId === undefined ? '' : String(selectedId);
+      if (!leagues.length) showTeamFormMessage('No leagues are available. Cancel this form, open Leagues, and add a league before adding a team.');
+      else clearTeamFormMessage();
+    }
+    async function prepareTeamForm(mode) {
+      hideScreens(); teamFormScreen.style.display = 'block'; currentEntity = 'Teams';
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(true); closeMenu();
+      document.getElementById('teamFormTitle').textContent = mode === 'change' ? 'Change - Team Management' : 'Add Team Management';
+      document.getElementById('teamForm').reset(); document.getElementById('teamActive').checked = true; clearTeamFormMessage(); await loadTeamLeagues();
+    }
+    async function showAddTeam() { editingTeamId = null; await prepareTeamForm('add'); }
+    async function showChangeTeam() {
+      const selected = document.querySelector('input[name="selectedTeam"]:checked');
+      if (!selected) { showAppMessage('Select a record to change.'); return; }
+      const teamId = Number(selected.value);
+      try {
+        const team = await dbCall('getTeam', { TeamId: teamId });
+        if (!team) { await refreshTeams(); showAppMessage('The selected record is no longer available.'); return; }
+        editingTeamId = teamId; await prepareTeamForm('change');
+        document.getElementById('teamName').value = team.Name || '';
+        document.getElementById('teamActive').checked = Number(team.Active) === 1;
+        await loadTeamLeagues(team.LeagueId);
+      } catch (error) { showAppMessage('Unable to load the selected team: ' + error.message); }
+    }
+    async function deleteSelectedTeam() {
+      const selected = document.querySelector('input[name="selectedTeam"]:checked');
+      if (!selected) { showAppMessage('Please select a row to delete.', () => showTeamsList()); return; }
+      const teamId = Number(selected.value);
+      showAppConfirm('Are you sure you want to delete this record?', async () => {
+        try { await dbCall('deleteTeam', { TeamId: teamId }); await showTeamsList(); }
+        catch (error) { showAppMessage('Unable to delete the selected team: ' + error.message); }
+      }, () => { teamsListScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(true); });
+    }
+    async function refreshTeams() {
+      const teams = await dbCall('listTeams'); const content = document.getElementById('teamsListContent');
+      if (!teams.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamsDbStatus').textContent = 'BowlingDB ready'; return; }
+      const body = teams.map(team => `<tr><td class="lane-radio"><input type="radio" name="selectedTeam" value="${Number(team.TeamId)}" aria-label="Select team ${Number(team.TeamId)}"></td><td>${escapeHtml(team.Name)}</td><td>${escapeHtml(team.LeagueName)}</td><td>${Number(team.Active) === 1 ? 'Yes' : 'No'}</td></tr>`).join('');
+      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Teams"><thead><tr><th aria-label="Select"></th><th>Name</th><th>League</th><th>Active</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Each team is associated with one league. Active is shown as Yes or No.</p>`;
+      document.getElementById('teamsDbStatus').textContent = 'BowlingDB ready';
+    }
+    function showTeamFormMessage(message) { const el = document.getElementById('teamFormMessage'); el.textContent = message; el.classList.add('show'); }
+    function clearTeamFormMessage() { const el = document.getElementById('teamFormMessage'); el.textContent = ''; el.classList.remove('show'); }
+    document.getElementById('saveTeamButton').addEventListener('click', async event => {
+      event.preventDefault(); clearTeamFormMessage();
+      const name = document.getElementById('teamName').value.trim();
+      const leagueId = document.getElementById('teamLeagueId').value;
+      const active = document.getElementById('teamActive').checked ? 1 : 0;
+      if (!name) return showTeamFormMessage('Name is required and cannot be blank.');
+      if (!leagueId) return showTeamFormMessage('League is required. Select a league.');
+      if (!dbReady) return showTeamFormMessage('BowlingDB is not ready yet. Please try again in a moment.');
+      const btn = document.getElementById('saveTeamButton'); btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const payload = { Name: name, LeagueId: Number(leagueId), Active: active };
+        if (editingTeamId === null) await dbCall('insertTeam', payload); else await dbCall('updateTeam', { TeamId: editingTeamId, ...payload });
+        editingTeamId = null; await showTeamsList();
+      } catch (error) {
+        if (/FOREIGN KEY constraint failed/i.test(error.message)) showTeamFormMessage('Select an existing league.');
+        else showTeamFormMessage('The team could not be saved: ' + error.message);
+      } finally { btn.disabled = false; btn.textContent = 'Save'; }
+    });
+    document.getElementById('teamForm').addEventListener('submit', event => event.preventDefault());
+    document.getElementById('cancelTeamButton').addEventListener('click', () => { editingTeamId = null; document.getElementById('teamForm').reset(); document.getElementById('teamActive').checked = true; clearTeamFormMessage(); showTeamsList(); });
+
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
       const open = actionsMenu.classList.toggle('open');
@@ -557,6 +656,7 @@
     lanesButton.addEventListener('click', showLanesList);
     bowlersButton.addEventListener('click', showBowlersList);
     leaguesButton.addEventListener('click', showLeaguesList);
+    teamsButton.addEventListener('click', showTeamsList);
     document.getElementById('cancelLaneButton').addEventListener('click', () => {
       editingLaneId = null;
       document.getElementById('laneForm').reset();
@@ -569,11 +669,11 @@
         const action = button.dataset.action;
         closeMenu();
         if (action === 'Add') {
-          if (currentEntity === 'Bowlers') showAddBowler(); else if (currentEntity === 'Leagues') showAddLeague(); else showAddLane();
+          if (currentEntity === 'Bowlers') showAddBowler(); else if (currentEntity === 'Leagues') showAddLeague(); else if (currentEntity === 'Teams') showAddTeam(); else showAddLane();
         } else if (action === 'Change') {
-          if (currentEntity === 'Bowlers') showChangeBowler(); else if (currentEntity === 'Leagues') showChangeLeague(); else showChangeLane();
+          if (currentEntity === 'Bowlers') showChangeBowler(); else if (currentEntity === 'Leagues') showChangeLeague(); else if (currentEntity === 'Teams') showChangeTeam(); else showChangeLane();
         } else if (action === 'Delete') {
-          if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else deleteSelectedLane();
+          if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else if (currentEntity === 'Teams') deleteSelectedTeam(); else deleteSelectedLane();
         } else if (action === 'Quit') {
           showAppMessage('To close Bowling, use your device’s app switcher or browser controls.');
         } else if (action === 'Import' || action === 'Export') {
@@ -593,7 +693,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v21', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v22', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

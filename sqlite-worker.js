@@ -42,6 +42,13 @@ async function initializeOnce() {
     Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1)),
     Location INTEGER NOT NULL,
     FOREIGN KEY (Location) REFERENCES Lanes(LaneId) ON DELETE RESTRICT
+  );
+  CREATE TABLE IF NOT EXISTS Teams (
+    TeamId INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name TEXT NOT NULL CHECK(length(trim(Name)) > 0),
+    Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1)),
+    LeagueId INTEGER NOT NULL,
+    FOREIGN KEY (LeagueId) REFERENCES Leagues(LeagueId) ON DELETE RESTRICT
   );`);
   // Upgrade existing b1v20 databases without removing saved league records.
   const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
@@ -127,6 +134,21 @@ self.onmessage = async event => {
     } else if (type === 'deleteLeague') {
       db.exec({ sql: 'DELETE FROM Leagues WHERE LeagueId = ?', bind: [requestPayload.LeagueId] });
       self.postMessage({ id, ok: true, data: { LeagueId: requestPayload.LeagueId, changes: db.changes() } });
+    } else if (type === 'listTeamLeagues') {
+      self.postMessage({ id, ok: true, data: rows('SELECT LeagueId, LeagueName FROM Leagues ORDER BY LeagueName COLLATE NOCASE, LeagueId') });
+    } else if (type === 'listTeams') {
+      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.Active, Teams.LeagueId, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId = Teams.LeagueId ORDER BY Teams.Name COLLATE NOCASE, Teams.TeamId') });
+    } else if (type === 'getTeam') {
+      self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name, Active, LeagueId FROM Teams WHERE TeamId = ?', [requestPayload.TeamId])[0] || null });
+    } else if (type === 'insertTeam') {
+      db.exec({ sql: 'INSERT INTO Teams (Name, Active, LeagueId) VALUES (?, ?, ?)', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId] });
+      self.postMessage({ id, ok: true, data: { TeamId: db.selectValue('SELECT last_insert_rowid()') } });
+    } else if (type === 'updateTeam') {
+      db.exec({ sql: 'UPDATE Teams SET Name=?, Active=?, LeagueId=? WHERE TeamId=?', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamId] });
+      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, changes: db.changes() } });
+    } else if (type === 'deleteTeam') {
+      db.exec({ sql: 'DELETE FROM Teams WHERE TeamId = ?', bind: [requestPayload.TeamId] });
+      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, changes: db.changes() } });
     } else {
       throw new Error('Unknown database request.');
     }
