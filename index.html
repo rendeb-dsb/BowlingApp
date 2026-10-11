@@ -81,7 +81,7 @@
     .lane-list th:first-child, .lane-list td:first-child { width:34px; text-align:center; }
     .lane-list input[type=radio] { margin:0; }
     .teams-list { min-width:390px; table-layout:fixed; }
-    .teams-list th:nth-child(3), .teams-list td:nth-child(3) { width:30px; min-width:30px; max-width:30px; padding-left:2px; padding-right:2px; text-align:center; overflow:hidden; }
+    .teams-list th:nth-child(3), .teams-list td:nth-child(3) { width:60px; min-width:60px; max-width:60px; padding-left:2px; padding-right:2px; text-align:center; overflow:hidden; }
     .bowlers-list { min-width:390px; table-layout:fixed; }
     .bowlers-list th:nth-child(2), .bowlers-list td:nth-child(2) { width:66px; text-align:center; }
     .bowlers-list th:nth-child(3), .bowlers-list td:nth-child(3),
@@ -117,7 +117,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v23</div>
+    <div class="version">b1v24</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -144,6 +144,7 @@
     <button class="menu-button" id="bowlersButton" aria-pressed="false">Bowlers</button>
     <button class="menu-button" id="leaguesButton" aria-pressed="false">Leagues</button>
     <button class="menu-button" id="teamsButton" aria-pressed="false">Teams</button>
+    <button class="menu-button" id="teamMembersButton" aria-pressed="false">Team Members</button>
   </nav>
 
   <main id="displayArea">
@@ -154,7 +155,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v23</p>
+      <p><strong>Application version:</strong> b1v24</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -261,6 +262,22 @@
         </tbody></table>
       </form>
     </section>
+
+    <section class="display-screen" id="teamMembersListScreen" aria-label="Team Members list">
+      <div class="db-status" id="teamMembersDbStatus">Opening BowlingDB…</div>
+      <div id="teamMembersListContent"><div class="lanes-empty">No records to display.</div></div>
+    </section>
+    <section class="display-screen" id="teamMemberFormScreen" aria-label="Team Member Management">
+      <div class="screen-titlebar"><h2 id="teamMemberFormTitle">Add Team Member</h2><div class="title-actions"><button class="action-button primary" id="saveTeamMemberButton" type="button">Save</button><button class="action-button" id="cancelTeamMemberButton" type="button">Cancel</button></div></div>
+      <div class="form-message" id="teamMemberFormMessage" role="alert"></div>
+      <form class="lane-form" id="teamMemberForm" autocomplete="off">
+        <table class="lane-fields" aria-label="Team member details"><tbody>
+          <tr><td class="label-cell"><label for="teamMemberTeamId">Team:</label></td><td class="control-cell"><select id="teamMemberTeamId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a team</option></select></td></tr>
+          <tr><td class="label-cell"><label for="teamMemberBowlerId">Bowler:</label></td><td class="control-cell"><select id="teamMemberBowlerId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a bowler</option></select></td></tr>
+        </tbody></table>
+        <p class="list-note">Only active teams and active bowlers are available. A bowler can be assigned to a particular team only once.</p>
+      </form>
+    </section>
   </main>
   <div class="app-message-backdrop" id="appMessageBackdrop" role="presentation">
     <section class="app-message" role="alertdialog" aria-modal="true" aria-labelledby="appMessageTitle" aria-describedby="appMessageText">
@@ -269,7 +286,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v23</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v24</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -281,6 +298,7 @@
     const bowlersButton = document.getElementById('bowlersButton');
     const leaguesButton = document.getElementById('leaguesButton');
     const teamsButton = document.getElementById('teamsButton');
+    const teamMembersButton = document.getElementById('teamMembersButton');
     const lanesListScreen = document.getElementById('lanesListScreen');
     const addLaneScreen = document.getElementById('addLaneScreen');
     const bowlersListScreen = document.getElementById('bowlersListScreen');
@@ -289,11 +307,14 @@
     const leagueFormScreen = document.getElementById('leagueFormScreen');
     const teamsListScreen = document.getElementById('teamsListScreen');
     const teamFormScreen = document.getElementById('teamFormScreen');
+    const teamMembersListScreen = document.getElementById('teamMembersListScreen');
+    const teamMemberFormScreen = document.getElementById('teamMemberFormScreen');
     let currentEntity = 'Lanes';
     let editingLaneId = null;
     let editingBowlerId = null;
     let editingLeagueId = null;
     let editingTeamId = null;
+    let editingTeamMember = null;
     const messageBackdrop = document.getElementById('appMessageBackdrop');
     const messageText = document.getElementById('appMessageText');
     let messageOkCallback = null;
@@ -345,6 +366,8 @@
       leagueFormScreen.style.display = 'none';
       teamsListScreen.style.display = 'none';
       teamFormScreen.style.display = 'none';
+      teamMembersListScreen.style.display = 'none';
+      teamMemberFormScreen.style.display = 'none';
     }
     function setLanesActive(active) {
       lanesButton.classList.toggle('active', active);
@@ -648,6 +671,82 @@
     document.getElementById('teamForm').addEventListener('submit', event => event.preventDefault());
     document.getElementById('cancelTeamButton').addEventListener('click', () => { editingTeamId = null; document.getElementById('teamForm').reset(); document.getElementById('teamActive').checked = true; clearTeamFormMessage(); showTeamsList(); });
 
+
+    function setTeamMembersActive(active) {
+      teamMembersButton.classList.toggle('active', active);
+      teamMembersButton.setAttribute('aria-pressed', String(active));
+    }
+    async function showTeamMembersList() {
+      currentEntity = 'TeamMembers'; hideScreens(); teamMembersListScreen.style.display = 'block';
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(true); closeMenu();
+      if (dbReady) { try { await refreshTeamMembers(); } catch (error) { document.getElementById('teamMembersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
+    }
+    async function loadTeamMemberChoices(teamId = '', bowlerId = '') {
+      const [teams, bowlers] = await Promise.all([dbCall('listActiveTeams'), dbCall('listActiveBowlers')]);
+      const teamSelect = document.getElementById('teamMemberTeamId');
+      const bowlerSelect = document.getElementById('teamMemberBowlerId');
+      teamSelect.innerHTML = '<option value="">Select a team</option>' + teams.map(x => `<option value="${Number(x.TeamId)}">${escapeHtml(x.Name)} — ${escapeHtml(x.LeagueName)}</option>`).join('');
+      bowlerSelect.innerHTML = '<option value="">Select a bowler</option>' + bowlers.map(x => `<option value="${Number(x.BowlerId)}">${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}</option>`).join('');
+      teamSelect.value = teamId ? String(teamId) : '';
+      bowlerSelect.value = bowlerId ? String(bowlerId) : '';
+      teamSelect.disabled = !teams.length || editingTeamMember !== null;
+      bowlerSelect.disabled = !bowlers.length || editingTeamMember !== null;
+      if (!teams.length || !bowlers.length) showTeamMemberFormMessage('An active team and an active bowler are required. Add or activate the necessary records first.');
+      else clearTeamMemberFormMessage();
+    }
+    async function prepareTeamMemberForm(mode) {
+      hideScreens(); teamMemberFormScreen.style.display = 'block'; currentEntity = 'TeamMembers';
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(true); closeMenu();
+      document.getElementById('teamMemberFormTitle').textContent = mode === 'change' ? 'Change - Team Member' : 'Add Team Member';
+      document.getElementById('teamMemberForm').reset(); clearTeamMemberFormMessage(); await loadTeamMemberChoices();
+    }
+    async function showAddTeamMember() { editingTeamMember = null; await prepareTeamMemberForm('add'); }
+    async function showChangeTeamMember() {
+      const selected = document.querySelector('input[name="selectedTeamMember"]:checked');
+      if (!selected) { showAppMessage('Select a membership to change.'); return; }
+      const [teamId, bowlerId] = selected.value.split(':').map(Number);
+      editingTeamMember = { TeamId: teamId, BowlerId: bowlerId };
+      await prepareTeamMemberForm('change');
+      document.getElementById('teamMemberTeamId').value = String(teamId);
+      document.getElementById('teamMemberBowlerId').value = String(bowlerId);
+    }
+    async function deleteSelectedTeamMember() {
+      const selected = document.querySelector('input[name="selectedTeamMember"]:checked');
+      if (!selected) { showAppMessage('Please select a membership to delete.'); return; }
+      const [TeamId, BowlerId] = selected.value.split(':').map(Number);
+      showAppConfirm('Are you sure you want to delete this team membership?', async () => {
+        try { await dbCall('deleteTeamMember', { TeamId, BowlerId }); await showTeamMembersList(); }
+        catch (error) { showAppMessage('Unable to delete the membership: ' + error.message); }
+      }, () => { teamMembersListScreen.style.display = 'block'; setTeamMembersActive(true); });
+    }
+    async function refreshTeamMembers() {
+      const memberships = await dbCall('listTeamMembers');
+      const content = document.getElementById('teamMembersListContent');
+      if (!memberships.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamMembersDbStatus').textContent = 'BowlingDB ready'; return; }
+      const body = memberships.map(x => `<tr><td class="lane-radio"><input type="radio" name="selectedTeamMember" value="${Number(x.TeamId)}:${Number(x.BowlerId)}" aria-label="Select ${escapeHtml(x.TeamName)} membership for ${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}"></td><td>${escapeHtml(x.TeamName)}</td><td>${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}</td></tr>`).join('');
+      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Team Members"><thead><tr><th aria-label="Select"></th><th>Team</th><th>Bowler</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Each bowler can appear only once on a particular team.</p>`;
+      document.getElementById('teamMembersDbStatus').textContent = 'BowlingDB ready';
+    }
+    function showTeamMemberFormMessage(message) { const el = document.getElementById('teamMemberFormMessage'); el.textContent = message; el.classList.add('show'); }
+    function clearTeamMemberFormMessage() { const el = document.getElementById('teamMemberFormMessage'); el.textContent = ''; el.classList.remove('show'); }
+    document.getElementById('saveTeamMemberButton').addEventListener('click', async event => {
+      event.preventDefault(); clearTeamMemberFormMessage();
+      const TeamId = Number(document.getElementById('teamMemberTeamId').value);
+      const BowlerId = Number(document.getElementById('teamMemberBowlerId').value);
+      if (!TeamId || !BowlerId) return showTeamMemberFormMessage('Select both a team and a bowler.');
+      try {
+        if (editingTeamMember === null) await dbCall('insertTeamMember', { TeamId, BowlerId });
+        else await dbCall('updateTeamMember', { oldTeamId: editingTeamMember.TeamId, oldBowlerId: editingTeamMember.BowlerId, TeamId, BowlerId });
+        editingTeamMember = null; await showTeamMembersList();
+      } catch (error) {
+        if (/UNIQUE constraint failed|PRIMARY KEY constraint failed/i.test(error.message)) showTeamMemberFormMessage('This bowler is already assigned to that team.');
+        else if (/FOREIGN KEY constraint failed/i.test(error.message)) showTeamMemberFormMessage('Select an existing team and bowler.');
+        else showTeamMemberFormMessage('The membership could not be saved: ' + error.message);
+      }
+    });
+    document.getElementById('teamMemberForm').addEventListener('submit', event => event.preventDefault());
+    document.getElementById('cancelTeamMemberButton').addEventListener('click', () => { editingTeamMember = null; showTeamMembersList(); });
+
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
       const open = actionsMenu.classList.toggle('open');
@@ -659,6 +758,7 @@
     bowlersButton.addEventListener('click', showBowlersList);
     leaguesButton.addEventListener('click', showLeaguesList);
     teamsButton.addEventListener('click', showTeamsList);
+    teamMembersButton.addEventListener('click', showTeamMembersList);
     document.getElementById('cancelLaneButton').addEventListener('click', () => {
       editingLaneId = null;
       document.getElementById('laneForm').reset();
@@ -671,11 +771,11 @@
         const action = button.dataset.action;
         closeMenu();
         if (action === 'Add') {
-          if (currentEntity === 'Bowlers') showAddBowler(); else if (currentEntity === 'Leagues') showAddLeague(); else if (currentEntity === 'Teams') showAddTeam(); else showAddLane();
+          if (currentEntity === 'Bowlers') showAddBowler(); else if (currentEntity === 'Leagues') showAddLeague(); else if (currentEntity === 'Teams') showAddTeam(); else if (currentEntity === 'TeamMembers') showAddTeamMember(); else showAddLane();
         } else if (action === 'Change') {
-          if (currentEntity === 'Bowlers') showChangeBowler(); else if (currentEntity === 'Leagues') showChangeLeague(); else if (currentEntity === 'Teams') showChangeTeam(); else showChangeLane();
+          if (currentEntity === 'Bowlers') showChangeBowler(); else if (currentEntity === 'Leagues') showChangeLeague(); else if (currentEntity === 'Teams') showChangeTeam(); else if (currentEntity === 'TeamMembers') showChangeTeamMember(); else showChangeLane();
         } else if (action === 'Delete') {
-          if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else if (currentEntity === 'Teams') deleteSelectedTeam(); else deleteSelectedLane();
+          if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else if (currentEntity === 'Teams') deleteSelectedTeam(); else if (currentEntity === 'TeamMembers') deleteSelectedTeamMember(); else deleteSelectedLane();
         } else if (action === 'Quit') {
           showAppMessage('To close Bowling, use your device’s app switcher or browser controls.');
         } else if (action === 'Import' || action === 'Export') {
@@ -695,7 +795,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v23', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v24', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

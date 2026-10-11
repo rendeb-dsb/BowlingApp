@@ -49,6 +49,13 @@ async function initializeOnce() {
     Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1)),
     LeagueId INTEGER NOT NULL,
     FOREIGN KEY (LeagueId) REFERENCES Leagues(LeagueId) ON DELETE RESTRICT
+  );
+  CREATE TABLE IF NOT EXISTS TeamMembers (
+    TeamId INTEGER NOT NULL,
+    BowlerId INTEGER NOT NULL,
+    PRIMARY KEY (TeamId, BowlerId),
+    FOREIGN KEY (TeamId) REFERENCES Teams(TeamId) ON DELETE CASCADE,
+    FOREIGN KEY (BowlerId) REFERENCES Bowlers(BowlerId) ON DELETE CASCADE
   );`);
   // Upgrade existing b1v20 databases without removing saved league records.
   const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
@@ -149,6 +156,25 @@ self.onmessage = async event => {
     } else if (type === 'deleteTeam') {
       db.exec({ sql: 'DELETE FROM Teams WHERE TeamId = ?', bind: [requestPayload.TeamId] });
       self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, changes: db.changes() } });
+    } else if (type === 'listActiveTeams') {
+      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId=Teams.LeagueId WHERE Teams.Active=1 ORDER BY Teams.Name COLLATE NOCASE, Teams.TeamId') });
+    } else if (type === 'listActiveBowlers') {
+      self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
+    } else if (type === 'listTeamMembers') {
+      self.postMessage({ id, ok: true, data: rows('SELECT TeamMembers.TeamId, TeamMembers.BowlerId, Teams.Name AS TeamName, Bowlers.FirstName, Bowlers.LastName FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId ORDER BY Teams.Name COLLATE NOCASE, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE') });
+    } else if (type === 'insertTeamMember') {
+      if (!rows('SELECT TeamId FROM Teams WHERE TeamId=? AND Active=1', [requestPayload.TeamId]).length) throw new Error('Only active teams can have new memberships.');
+      if (!rows('SELECT BowlerId FROM Bowlers WHERE BowlerId=? AND Active=1', [requestPayload.BowlerId]).length) throw new Error('Only active bowlers can be assigned to teams.');
+      db.exec({ sql: 'INSERT INTO TeamMembers (TeamId, BowlerId) VALUES (?, ?)', bind: [requestPayload.TeamId, requestPayload.BowlerId] });
+      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId } });
+    } else if (type === 'updateTeamMember') {
+      if (!rows('SELECT TeamId FROM Teams WHERE TeamId=? AND Active=1', [requestPayload.TeamId]).length) throw new Error('Only active teams can have memberships.');
+      if (!rows('SELECT BowlerId FROM Bowlers WHERE BowlerId=? AND Active=1', [requestPayload.BowlerId]).length) throw new Error('Only active bowlers can be assigned to teams.');
+      db.exec({ sql: 'UPDATE TeamMembers SET TeamId=?, BowlerId=? WHERE TeamId=? AND BowlerId=?', bind: [requestPayload.TeamId, requestPayload.BowlerId, requestPayload.oldTeamId, requestPayload.oldBowlerId] });
+      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId } });
+    } else if (type === 'deleteTeamMember') {
+      db.exec({ sql: 'DELETE FROM TeamMembers WHERE TeamId=? AND BowlerId=?', bind: [requestPayload.TeamId, requestPayload.BowlerId] });
+      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId, changes: db.changes() } });
     } else {
       throw new Error('Unknown database request.');
     }
