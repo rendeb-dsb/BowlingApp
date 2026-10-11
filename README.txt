@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 13 (b1v13)
+Bowling PWA — Build 1 Version 14 (b1v14)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.

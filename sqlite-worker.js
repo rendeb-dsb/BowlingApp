@@ -25,7 +25,7 @@ async function initialize() {
   return { version: sqlite3.version.libVersion };
 }
 self.onmessage = async event => {
-  const { id, type, data } = event.data || {};
+  const { id, type, data: requestData } = event.data || {};
   try {
     if (type === 'init') {
       const info = await initialize();
@@ -36,18 +36,18 @@ self.onmessage = async event => {
       const data = rows('SELECT LaneId, Name, Telephone, Address1, City, State, Zip, "Order" FROM Lanes ORDER BY "Order", LaneId');
       self.postMessage({ id, ok: true, data });
     } else if (type === 'get') {
-      const data = rows('SELECT LaneId, Name, Address1, Address2, City, State, Zip, Telephone, "Order" FROM Lanes WHERE LaneId = ?', [data.LaneId])[0] || null;
-      self.postMessage({ id, ok: true, data });
+      const laneRecord = rows('SELECT LaneId, Name, Address1, Address2, City, State, Zip, Telephone, "Order" FROM Lanes WHERE LaneId = ?', [requestData.LaneId])[0] || null;
+      self.postMessage({ id, ok: true, data: laneRecord });
     } else if (type === 'update') {
       db.exec({
         sql: 'UPDATE Lanes SET Name=?, Address1=?, Address2=?, City=?, State=?, Zip=?, Telephone=?, "Order"=? WHERE LaneId=?',
-        bind: [data.Name, data.Address1 || null, data.Address2 || null, data.City || null, data.State, data.Zip || null, data.Telephone || null, data.Order, data.LaneId]
+        bind: [requestData.Name, requestData.Address1 || null, requestData.Address2 || null, requestData.City || null, requestData.State, requestData.Zip || null, requestData.Telephone || null, requestData.Order, requestData.LaneId]
       });
-      self.postMessage({ id, ok: true, data: { LaneId: data.LaneId, changes: db.changes() } });
+      self.postMessage({ id, ok: true, data: { LaneId: requestData.LaneId, changes: db.changes() } });
     } else if (type === 'insert') {
       db.exec({
         sql: 'INSERT INTO Lanes (Name, Address1, Address2, City, State, Zip, Telephone, "Order") VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        bind: [data.Name, data.Address1 || null, data.Address2 || null, data.City || null, data.State, data.Zip || null, data.Telephone || null, data.Order]
+        bind: [requestData.Name, requestData.Address1 || null, requestData.Address2 || null, requestData.City || null, requestData.State, requestData.Zip || null, requestData.Telephone || null, requestData.Order]
       });
       const laneId = db.selectValue('SELECT last_insert_rowid()');
       self.postMessage({ id, ok: true, data: { LaneId: laneId } });
