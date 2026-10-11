@@ -21,6 +21,12 @@ async function initialize() {
     Zip TEXT CHECK(Zip IS NULL OR (length(Zip)=5 AND Zip NOT GLOB '*[^0-9]*')),
     Telephone TEXT CHECK(Telephone IS NULL OR (length(Telephone)=10 AND Telephone NOT GLOB '*[^0-9]*')),
     "Order" INTEGER NOT NULL UNIQUE CHECK(typeof("Order")='integer' AND "Order">0)
+  );
+  CREATE TABLE IF NOT EXISTS Bowlers (
+    BowlerId INTEGER PRIMARY KEY AUTOINCREMENT,
+    FirstName TEXT NOT NULL CHECK(length(trim(FirstName)) > 0),
+    LastName TEXT NOT NULL CHECK(length(trim(LastName)) > 0),
+    Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1))
   );`);
   return { version: sqlite3.version.libVersion };
 }
@@ -54,6 +60,22 @@ self.onmessage = async event => {
     } else if (type === 'delete') {
       db.exec({ sql: 'DELETE FROM Lanes WHERE LaneId = ?', bind: [requestPayload.LaneId] });
       self.postMessage({ id, ok: true, data: { LaneId: requestPayload.LaneId, changes: db.changes() } });
+    } else if (type === 'listBowlers') {
+      const bowlerRows = rows('SELECT BowlerId, FirstName, LastName, Active FROM Bowlers ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId');
+      self.postMessage({ id, ok: true, data: bowlerRows });
+    } else if (type === 'getBowler') {
+      const bowlerRecord = rows('SELECT BowlerId, FirstName, LastName, Active FROM Bowlers WHERE BowlerId = ?', [requestPayload.BowlerId])[0] || null;
+      self.postMessage({ id, ok: true, data: bowlerRecord });
+    } else if (type === 'insertBowler') {
+      db.exec({ sql: 'INSERT INTO Bowlers (FirstName, LastName, Active) VALUES (?, ?, ?)', bind: [requestPayload.FirstName, requestPayload.LastName, requestPayload.Active] });
+      const bowlerId = db.selectValue('SELECT last_insert_rowid()');
+      self.postMessage({ id, ok: true, data: { BowlerId: bowlerId } });
+    } else if (type === 'updateBowler') {
+      db.exec({ sql: 'UPDATE Bowlers SET FirstName=?, LastName=?, Active=? WHERE BowlerId=?', bind: [requestPayload.FirstName, requestPayload.LastName, requestPayload.Active, requestPayload.BowlerId] });
+      self.postMessage({ id, ok: true, data: { BowlerId: requestPayload.BowlerId, changes: db.changes() } });
+    } else if (type === 'deleteBowler') {
+      db.exec({ sql: 'DELETE FROM Bowlers WHERE BowlerId = ?', bind: [requestPayload.BowlerId] });
+      self.postMessage({ id, ok: true, data: { BowlerId: requestPayload.BowlerId, changes: db.changes() } });
     } else {
       throw new Error('Unknown database request.');
     }

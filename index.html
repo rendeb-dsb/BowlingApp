@@ -66,6 +66,8 @@
     .inline-field label { white-space:nowrap; font-size:15px; }
     .lane-fields input { height:34px; border:1px solid #9eafbd; border-radius:4px; padding:5px 8px; font:16px Arial,Helvetica,sans-serif; background:white; color:var(--ink); min-width:0; }
     .lane-fields input:focus { outline:2px solid #8cbde0; outline-offset:1px; }
+    .active-checkbox { display:inline-flex; align-items:center; gap:8px; min-height:34px; font-size:15px; }
+    .active-checkbox input[type="checkbox"] { width:18px; height:18px; margin:0; accent-color:var(--navy); }
     #laneName, #laneAddress1, #laneAddress2 { width:min(520px, 100%); max-width:100%; }
     #laneTelephone { width:148px; font-variant-numeric:tabular-nums; }
     #laneOrder { width:42px; padding-left:3px; padding-right:3px; }
@@ -109,7 +111,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v16</div>
+    <div class="version">b1v17</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -133,6 +135,7 @@
       </div>
     </div>
     <button class="menu-button" id="lanesButton" aria-pressed="false">Lanes</button>
+    <button class="menu-button" id="bowlersButton" aria-pressed="false">Bowlers</button>
   </nav>
 
   <main id="displayArea">
@@ -143,7 +146,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v16</p>
+      <p><strong>Application version:</strong> b1v17</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -200,6 +203,24 @@
       </table>
       </form>
     </section>
+    <section class="display-screen" id="bowlersListScreen" aria-label="Bowlers list">
+      <div class="db-status" id="bowlersDbStatus">Opening BowlingDB…</div>
+      <div id="bowlersListContent"><div class="lanes-empty">No records to display.</div></div>
+    </section>
+    <section class="display-screen" id="bowlerFormScreen" aria-label="Bowlers Management">
+      <div class="screen-titlebar">
+        <h2 id="bowlerFormTitle">Add Bowler Management</h2>
+        <div class="title-actions"><button class="action-button primary" id="saveBowlerButton" type="button">Save</button><button class="action-button" id="cancelBowlerButton" type="button">Cancel</button></div>
+      </div>
+      <div class="form-message" id="bowlerFormMessage" role="alert"></div>
+      <form class="lane-form" id="bowlerForm" autocomplete="off">
+        <table class="lane-fields" aria-label="Bowler details"><tbody>
+          <tr><td class="label-cell"><label for="bowlerFirstName">First Name:</label></td><td class="control-cell"><input id="bowlerFirstName" name="FirstName" type="text" autocomplete="given-name"></td></tr>
+          <tr><td class="label-cell"><label for="bowlerLastName">Last Name:</label></td><td class="control-cell"><input id="bowlerLastName" name="LastName" type="text" autocomplete="family-name"></td></tr>
+          <tr><td class="label-cell"><label for="bowlerActive">Active:</label></td><td class="control-cell"><label class="active-checkbox"><input id="bowlerActive" name="Active" type="checkbox" checked> Active</label></td></tr>
+        </tbody></table>
+      </form>
+    </section>
   </main>
   <div class="app-message-backdrop" id="appMessageBackdrop" role="presentation">
     <section class="app-message" role="alertdialog" aria-modal="true" aria-labelledby="appMessageTitle" aria-describedby="appMessageText">
@@ -208,7 +229,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v16</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v17</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -217,9 +238,14 @@
     const homePanel = document.getElementById('homePanel');
     const settingsPanel = document.getElementById('settingsPanel');
     const lanesButton = document.getElementById('lanesButton');
+    const bowlersButton = document.getElementById('bowlersButton');
     const lanesListScreen = document.getElementById('lanesListScreen');
     const addLaneScreen = document.getElementById('addLaneScreen');
+    const bowlersListScreen = document.getElementById('bowlersListScreen');
+    const bowlerFormScreen = document.getElementById('bowlerFormScreen');
+    let currentEntity = 'Lanes';
     let editingLaneId = null;
+    let editingBowlerId = null;
     const messageBackdrop = document.getElementById('appMessageBackdrop');
     const messageText = document.getElementById('appMessageText');
     let messageOkCallback = null;
@@ -265,27 +291,37 @@
       settingsPanel.style.display = 'none';
       lanesListScreen.style.display = 'none';
       addLaneScreen.style.display = 'none';
+      bowlersListScreen.style.display = 'none';
+      bowlerFormScreen.style.display = 'none';
     }
     function setLanesActive(active) {
       lanesButton.classList.toggle('active', active);
       lanesButton.setAttribute('aria-pressed', String(active));
     }
+    function setBowlersActive(active) {
+      bowlersButton.classList.toggle('active', active);
+      bowlersButton.setAttribute('aria-pressed', String(active));
+    }
     function showHome() {
       hideScreens();
       homePanel.style.display = 'flex';
       setLanesActive(false);
+      setBowlersActive(false);
       closeMenu();
     }
     function showSettings() {
       hideScreens();
       settingsPanel.style.display = 'block';
       setLanesActive(false);
+      setBowlersActive(false);
       closeMenu();
     }
     async function showLanesList() {
+      currentEntity = 'Lanes';
       hideScreens();
       lanesListScreen.style.display = 'block';
       setLanesActive(true);
+      setBowlersActive(false);
       closeMenu();
       if (dbReady) {
         try { await refreshLanes(); }
@@ -297,6 +333,8 @@
       hideScreens();
       addLaneScreen.style.display = 'block';
       setLanesActive(true);
+      setBowlersActive(false);
+      currentEntity = 'Lanes';
       closeMenu();
       document.querySelector('#addLaneScreen .screen-titlebar h2').textContent = mode === 'change' ? 'Change - Lane Management' : 'Add Lanes Management';
       document.getElementById('laneForm').reset();
@@ -359,6 +397,40 @@
       });
     }
 
+    async function showBowlersList() {
+      currentEntity = 'Bowlers'; hideScreens(); bowlersListScreen.style.display = 'block';
+      setLanesActive(false); setBowlersActive(true); closeMenu();
+      if (dbReady) { try { await refreshBowlers(); } catch (error) { document.getElementById('bowlersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
+    }
+    function prepareBowlerForm(mode) {
+      hideScreens(); bowlerFormScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); currentEntity = 'Bowlers'; closeMenu();
+      document.getElementById('bowlerFormTitle').textContent = mode === 'change' ? 'Change - Bowler Management' : 'Add Bowler Management';
+      document.getElementById('bowlerForm').reset(); document.getElementById('bowlerActive').checked = true; clearBowlerFormMessage();
+    }
+    function showAddBowler() { editingBowlerId = null; prepareBowlerForm('add'); }
+    async function showChangeBowler() {
+      const selected = document.querySelector('input[name="selectedBowler"]:checked');
+      if (!selected) { showAppMessage('Select a record to change.'); return; }
+      const bowlerId = Number(selected.value);
+      try {
+        const bowler = await dbCall('getBowler', { BowlerId: bowlerId });
+        if (!bowler) { await refreshBowlers(); showAppMessage('The selected record is no longer available.'); return; }
+        editingBowlerId = bowlerId; prepareBowlerForm('change');
+        document.getElementById('bowlerFirstName').value = bowler.FirstName || '';
+        document.getElementById('bowlerLastName').value = bowler.LastName || '';
+        document.getElementById('bowlerActive').checked = Number(bowler.Active) === 1;
+      } catch (error) { showAppMessage('Unable to load the selected bowler: ' + error.message); }
+    }
+    async function deleteSelectedBowler() {
+      const selected = document.querySelector('input[name="selectedBowler"]:checked');
+      if (!selected) { showAppMessage('Please select a row to delete.', () => showBowlersList()); return; }
+      const bowlerId = Number(selected.value);
+      showAppConfirm('Are you sure you want to delete this record?', async () => {
+        try { await dbCall('deleteBowler', { BowlerId: bowlerId }); await refreshBowlers(); document.getElementById('bowlersDbStatus').textContent = 'BowlingDB ready · Bowler deleted'; await showBowlersList(); }
+        catch (error) { showAppMessage('Unable to delete the selected bowler: ' + error.message); }
+      }, () => { bowlersListScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); });
+    }
+
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
       const open = actionsMenu.classList.toggle('open');
@@ -367,6 +439,7 @@
     settingsButton.addEventListener('click', showSettings);
     document.getElementById('homeButton').addEventListener('click', showHome);
     lanesButton.addEventListener('click', showLanesList);
+    bowlersButton.addEventListener('click', showBowlersList);
     document.getElementById('cancelLaneButton').addEventListener('click', () => {
       editingLaneId = null;
       document.getElementById('laneForm').reset();
@@ -379,11 +452,11 @@
         const action = button.dataset.action;
         closeMenu();
         if (action === 'Add') {
-          showAddLane();
+          if (currentEntity === 'Bowlers') showAddBowler(); else showAddLane();
         } else if (action === 'Change') {
-          showChangeLane();
+          if (currentEntity === 'Bowlers') showChangeBowler(); else showChangeLane();
         } else if (action === 'Delete') {
-          deleteSelectedLane();
+          if (currentEntity === 'Bowlers') deleteSelectedBowler(); else deleteSelectedLane();
         } else if (action === 'Quit') {
           showAppMessage('To close Bowling, use your device’s app switcher or browser controls.');
         } else if (action === 'Import' || action === 'Export') {
@@ -403,7 +476,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v16', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v17', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -444,6 +517,34 @@
       </tr>`).join('');
       lanesListContent.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Lanes"><thead><tr><th aria-label="Select"></th><th>Order</th><th>Name</th><th>Telephone</th><th>Address1</th><th>City</th><th>ST</th><th>Zip</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Select a lane using its radio button.</p>`;
     }
+    async function refreshBowlers() {
+      const bowlers = await dbCall('listBowlers'); const content = document.getElementById('bowlersListContent');
+      if (!bowlers.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; return; }
+      const body = bowlers.map(bowler => `<tr><td class="lane-radio"><input type="radio" name="selectedBowler" value="${Number(bowler.BowlerId)}" aria-label="Select bowler ${Number(bowler.BowlerId)}"></td><td>${escapeHtml(bowler.FirstName)}</td><td>${escapeHtml(bowler.LastName)}</td><td>${Number(bowler.Active) === 1 ? 'Yes' : 'No'}</td></tr>`).join('');
+      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Bowlers"><thead><tr><th aria-label="Select"></th><th>First Name</th><th>Last Name</th><th>Active</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Select a bowler using its radio button. Active is shown as Yes or No.</p>`;
+    }
+    function showBowlerFormMessage(message) { const element = document.getElementById('bowlerFormMessage'); element.textContent = message; element.classList.add('show'); }
+    function clearBowlerFormMessage() { const element = document.getElementById('bowlerFormMessage'); element.textContent = ''; element.classList.remove('show'); }
+    document.getElementById('saveBowlerButton').addEventListener('click', async event => {
+      event.preventDefault(); clearBowlerFormMessage();
+      const firstName = document.getElementById('bowlerFirstName').value.trim(); const lastName = document.getElementById('bowlerLastName').value.trim();
+      const active = document.getElementById('bowlerActive').checked ? 1 : 0;
+      if (!firstName) return showBowlerFormMessage('First Name is required.');
+      if (!lastName) return showBowlerFormMessage('Last Name is required.');
+      if (!dbReady) return showBowlerFormMessage('BowlingDB is not ready yet. Please try again in a moment.');
+      const saveButton = document.getElementById('saveBowlerButton'); saveButton.disabled = true; saveButton.textContent = 'Saving…';
+      try {
+        const payload = { FirstName: firstName, LastName: lastName, Active: active };
+        const result = editingBowlerId === null ? await dbCall('insertBowler', payload) : await dbCall('updateBowler', { BowlerId: editingBowlerId, ...payload });
+        await refreshBowlers();
+        document.getElementById('bowlersDbStatus').textContent = editingBowlerId === null ? `BowlingDB ready · Bowler saved with BowlerId ${result.BowlerId}` : `BowlingDB ready · Bowler ${editingBowlerId} updated`;
+        editingBowlerId = null; document.getElementById('bowlerForm').reset(); document.getElementById('bowlerActive').checked = true; clearBowlerFormMessage(); await showBowlersList();
+      } catch (error) { showBowlerFormMessage('The bowler could not be saved: ' + error.message); }
+      finally { saveButton.disabled = false; saveButton.textContent = 'Save'; }
+    });
+    document.getElementById('bowlerForm').addEventListener('submit', event => event.preventDefault());
+    document.getElementById('cancelBowlerButton').addEventListener('click', () => { editingBowlerId = null; document.getElementById('bowlerForm').reset(); document.getElementById('bowlerActive').checked = true; clearBowlerFormMessage(); showBowlersList(); });
+
     function showFormMessage(message) {
       formMessage.textContent = message;
       formMessage.classList.add('show');
