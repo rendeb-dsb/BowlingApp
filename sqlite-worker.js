@@ -11,6 +11,7 @@ async function initialize() {
   const sqlite3 = await sqlite3InitModule();
   poolUtil = await sqlite3.installOpfsSAHPoolVfs({ name: 'bowling-opfs-sahpool' });
   db = new poolUtil.OpfsSAHPoolDb('/BowlingDB.sqlite3');
+  db.exec('PRAGMA foreign_keys = ON;');
   db.exec(`CREATE TABLE IF NOT EXISTS Lanes (
     LaneId INTEGER PRIMARY KEY AUTOINCREMENT,
     Name TEXT NOT NULL CHECK(length(trim(Name)) > 0),
@@ -27,6 +28,14 @@ async function initialize() {
     FirstName TEXT NOT NULL CHECK(length(trim(FirstName)) > 0),
     LastName TEXT NOT NULL CHECK(length(trim(LastName)) > 0),
     Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1))
+  );
+  CREATE TABLE IF NOT EXISTS Leagues (
+    LeagueId INTEGER PRIMARY KEY AUTOINCREMENT,
+    LeagueName TEXT NOT NULL CHECK(length(trim(LeagueName)) > 0),
+    StartDate TEXT CHECK(StartDate IS NULL OR (length(StartDate)=10 AND StartDate GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]')),
+    Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1)),
+    Location INTEGER NOT NULL,
+    FOREIGN KEY (Location) REFERENCES Lanes(LaneId) ON DELETE RESTRICT
   );`);
   return { version: sqlite3.version.libVersion };
 }
@@ -76,6 +85,25 @@ self.onmessage = async event => {
     } else if (type === 'deleteBowler') {
       db.exec({ sql: 'DELETE FROM Bowlers WHERE BowlerId = ?', bind: [requestPayload.BowlerId] });
       self.postMessage({ id, ok: true, data: { BowlerId: requestPayload.BowlerId, changes: db.changes() } });
+    } else if (type === 'listLocations') {
+      const locationRows = rows('SELECT LaneId, Name FROM Lanes ORDER BY Name COLLATE NOCASE, LaneId');
+      self.postMessage({ id, ok: true, data: locationRows });
+    } else if (type === 'listLeagues') {
+      const leagueRows = rows('SELECT Leagues.LeagueId, Leagues.LeagueName, Leagues.StartDate, Leagues.Active, Leagues.Location, Lanes.Name AS LocationName FROM Leagues JOIN Lanes ON Lanes.LaneId = Leagues.Location ORDER BY Leagues.LeagueName COLLATE NOCASE, Leagues.LeagueId');
+      self.postMessage({ id, ok: true, data: leagueRows });
+    } else if (type === 'getLeague') {
+      const leagueRecord = rows('SELECT LeagueId, LeagueName, StartDate, Active, Location FROM Leagues WHERE LeagueId = ?', [requestPayload.LeagueId])[0] || null;
+      self.postMessage({ id, ok: true, data: leagueRecord });
+    } else if (type === 'insertLeague') {
+      db.exec({ sql: 'INSERT INTO Leagues (LeagueName, StartDate, Active, Location) VALUES (?, ?, ?, ?)', bind: [requestPayload.LeagueName, requestPayload.StartDate, requestPayload.Active, requestPayload.Location] });
+      const leagueId = db.selectValue('SELECT last_insert_rowid()');
+      self.postMessage({ id, ok: true, data: { LeagueId: leagueId } });
+    } else if (type === 'updateLeague') {
+      db.exec({ sql: 'UPDATE Leagues SET LeagueName=?, StartDate=?, Active=?, Location=? WHERE LeagueId=?', bind: [requestPayload.LeagueName, requestPayload.StartDate, requestPayload.Active, requestPayload.Location, requestPayload.LeagueId] });
+      self.postMessage({ id, ok: true, data: { LeagueId: requestPayload.LeagueId, changes: db.changes() } });
+    } else if (type === 'deleteLeague') {
+      db.exec({ sql: 'DELETE FROM Leagues WHERE LeagueId = ?', bind: [requestPayload.LeagueId] });
+      self.postMessage({ id, ok: true, data: { LeagueId: requestPayload.LeagueId, changes: db.changes() } });
     } else {
       throw new Error('Unknown database request.');
     }

@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 17 (b1v18)
+Bowling PWA — Build 1 Version 17 (b1v19)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -32,12 +32,12 @@ Package layout
 - images/bowling-home.png
 
 
-b1v18 correction:
+b1v19 correction:
 - Change screen selected-lane retrieval uses requestPayload and laneRecord variables, avoiding the reported temporal-dead-zone error.
-- The SQLite worker URL is versioned (?v=b1v18) and explicitly precached so an older cached worker script is not reused.
+- The SQLite worker URL is versioned (?v=b1v19) and explicitly precached so an older cached worker script is not reused.
 
 
-b1v18 changes
+b1v19 changes
 - Actions > Delete is active on the Lanes list.
 - Without a selected lane, shows 'Please select a row to delete.' with OK.
 - With a selected lane, asks 'Are you sure you want to delete this record?' with Yes and No.
@@ -46,7 +46,7 @@ b1v18 changes
 - All popup dialogs retain the title 'The Bowling App says:'.
 
 
-b1v18 Bowlers table
+b1v19 Bowlers table
 - Adds the Bowlers table to the existing BowlingDB without dropping or recreating Lanes.
 - Fields: BowlerId INTEGER PRIMARY KEY AUTOINCREMENT; FirstName TEXT NOT NULL; LastName TEXT NOT NULL; Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0,1)).
 - Adds Bowlers menu and list with First Name, Last Name, and Active (Yes/No); BowlerId remains hidden.
@@ -57,6 +57,20 @@ b1v18 Bowlers table
 - Existing Lanes records and table are retained.
 
 
-b1v18 Bowlers list layout update
+b1v19 Bowlers list layout update
 - Column order is radio button, Active, First Name, Last Name.
 - First Name and Last Name columns have fixed, narrower widths (120px each) to reduce the list width.
+
+
+Build 1 Version 19 (b1v19) - Leagues
+- Adds Leagues table to existing BowlingDB without dropping Lanes or Bowlers.
+- LeagueId INTEGER PRIMARY KEY AUTOINCREMENT.
+- LeagueName TEXT NOT NULL.
+- StartDate optional TEXT stored as yyyy-mm-dd when supplied.
+- Active INTEGER NOT NULL DEFAULT 1 CHECK (Active IN (0,1)).
+- Location INTEGER NOT NULL REFERENCES Lanes(LaneId) ON DELETE RESTRICT.
+- SQLite foreign-key enforcement is enabled.
+- Adds Leagues list and Add/Change/Delete screens. Actions operate on the active list.
+- Location dropdown shows Lanes.Name and stores Lanes.LaneId.
+- Lanes referenced by a league cannot be deleted until that league is removed or reassigned.
+- Popup title convention remains “The Bowling App says:”.
