@@ -51,6 +51,9 @@ self.onmessage = async event => {
       });
       const laneId = db.selectValue('SELECT last_insert_rowid()');
       self.postMessage({ id, ok: true, data: { LaneId: laneId } });
+    } else if (type === 'delete') {
+      db.exec({ sql: 'DELETE FROM Lanes WHERE LaneId = ?', bind: [requestPayload.LaneId] });
+      self.postMessage({ id, ok: true, data: { LaneId: requestPayload.LaneId, changes: db.changes() } });
     } else {
       throw new Error('Unknown database request.');
     }

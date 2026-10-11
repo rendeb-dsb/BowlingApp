@@ -1,5 +1,5 @@
-const CACHE_NAME = 'bowling-b1v15';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icons/bowling.svg', './images/bowling-home.png', './sqlite-worker.js?v=b1v15'];
+const CACHE_NAME = 'bowling-b1v16';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icons/bowling.svg', './images/bowling-home.png', './sqlite-worker.js?v=b1v16'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)));
   self.skipWaiting();

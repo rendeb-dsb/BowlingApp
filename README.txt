@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 14 (b1v15)
+Bowling PWA — Build 1 Version 14 (b1v16)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -32,6 +32,15 @@ Package layout
 - images/bowling-home.png
 
 
-b1v15 correction:
+b1v16 correction:
 - Change screen selected-lane retrieval uses requestPayload and laneRecord variables, avoiding the reported temporal-dead-zone error.
-- The SQLite worker URL is versioned (?v=b1v15) and explicitly precached so an older cached worker script is not reused.
+- The SQLite worker URL is versioned (?v=b1v16) and explicitly precached so an older cached worker script is not reused.
+
+
+b1v16 changes
+- Actions > Delete is active on the Lanes list.
+- Without a selected lane, shows 'Please select a row to delete.' with OK.
+- With a selected lane, asks 'Are you sure you want to delete this record?' with Yes and No.
+- No returns to the list without rerendering it, preserving the selected row.
+- Yes deletes the selected Lanes row from BowlingDB and refreshes the list.
+- All popup dialogs retain the title 'The Bowling App says:'.

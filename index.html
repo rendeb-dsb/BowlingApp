@@ -83,7 +83,7 @@
     .app-message { width:min(420px, 100%); background:#fff; border:1px solid #9eafbd; border-radius:8px; box-shadow:0 12px 36px #0004; padding:18px; }
     .app-message h2 { margin:0 0 14px; color:var(--navy); font-size:19px; }
     .app-message p { margin:0 0 20px; line-height:1.45; overflow-wrap:anywhere; }
-    .app-message-actions { display:flex; justify-content:flex-end; }
+    .app-message-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
     .app-message-actions button { min-width:76px; }
     @media (max-width:480px) {
       .screen-titlebar h2 { font-size:20px; }
@@ -109,7 +109,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v15</div>
+    <div class="version">b1v16</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -143,7 +143,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v15</p>
+      <p><strong>Application version:</strong> b1v16</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -205,10 +205,10 @@
     <section class="app-message" role="alertdialog" aria-modal="true" aria-labelledby="appMessageTitle" aria-describedby="appMessageText">
       <h2 id="appMessageTitle">The Bowling App says:</h2>
       <p id="appMessageText"></p>
-      <div class="app-message-actions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
+      <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v15</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v16</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -226,8 +226,27 @@
     function showAppMessage(message, onOk = null) {
       messageText.textContent = message;
       messageOkCallback = onOk;
+      const actions = document.getElementById('appMessageActions');
+      actions.innerHTML = '<button class="action-button primary" id="appMessageOk" type="button">OK</button>';
+      document.getElementById('appMessageOk').addEventListener('click', closeAppMessage);
       messageBackdrop.classList.add('show');
       document.getElementById('appMessageOk').focus();
+    }
+    function showAppConfirm(message, onYes, onNo = null) {
+      messageText.textContent = message;
+      messageOkCallback = null;
+      const actions = document.getElementById('appMessageActions');
+      actions.innerHTML = '<button class="action-button" id="appMessageNo" type="button">No</button><button class="action-button primary" id="appMessageYes" type="button">Yes</button>';
+      document.getElementById('appMessageNo').addEventListener('click', () => {
+        messageBackdrop.classList.remove('show');
+        if (onNo) onNo();
+      });
+      document.getElementById('appMessageYes').addEventListener('click', async () => {
+        messageBackdrop.classList.remove('show');
+        await onYes();
+      });
+      messageBackdrop.classList.add('show');
+      document.getElementById('appMessageNo').focus();
     }
     function closeAppMessage() {
       messageBackdrop.classList.remove('show');
@@ -317,6 +336,29 @@
         showAppMessage('Unable to load the selected lane: ' + error.message);
       }
     }
+    async function deleteSelectedLane() {
+      const selected = document.querySelector('input[name="selectedLane"]:checked');
+      if (!selected) {
+        showAppMessage('Please select a row to delete.', () => showLanesList());
+        return;
+      }
+      const laneId = Number(selected.value);
+      showAppConfirm('Are you sure you want to delete this record?', async () => {
+        try {
+          await dbCall('delete', { LaneId: laneId });
+          await refreshLanes();
+          dbStatus.textContent = 'BowlingDB ready · Lane deleted';
+          await showLanesList();
+        } catch (error) {
+          showAppMessage('Unable to delete the selected lane: ' + error.message);
+        }
+      }, () => {
+        // Do not rerender the list: the selected row stays selected when No is pressed.
+        lanesListScreen.style.display = 'block';
+        setLanesActive(true);
+      });
+    }
+
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
       const open = actionsMenu.classList.toggle('open');
@@ -340,6 +382,8 @@
           showAddLane();
         } else if (action === 'Change') {
           showChangeLane();
+        } else if (action === 'Delete') {
+          deleteSelectedLane();
         } else if (action === 'Quit') {
           showAppMessage('To close Bowling, use your device’s app switcher or browser controls.');
         } else if (action === 'Import' || action === 'Export') {
@@ -359,7 +403,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v15', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v16', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
