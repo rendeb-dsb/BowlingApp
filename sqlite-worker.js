@@ -35,6 +35,15 @@ self.onmessage = async event => {
     } else if (type === 'list') {
       const data = rows('SELECT LaneId, Name, Telephone, Address1, City, State, Zip, "Order" FROM Lanes ORDER BY "Order", LaneId');
       self.postMessage({ id, ok: true, data });
+    } else if (type === 'get') {
+      const data = rows('SELECT LaneId, Name, Address1, Address2, City, State, Zip, Telephone, "Order" FROM Lanes WHERE LaneId = ?', [data.LaneId])[0] || null;
+      self.postMessage({ id, ok: true, data });
+    } else if (type === 'update') {
+      db.exec({
+        sql: 'UPDATE Lanes SET Name=?, Address1=?, Address2=?, City=?, State=?, Zip=?, Telephone=?, "Order"=? WHERE LaneId=?',
+        bind: [data.Name, data.Address1 || null, data.Address2 || null, data.City || null, data.State, data.Zip || null, data.Telephone || null, data.Order, data.LaneId]
+      });
+      self.postMessage({ id, ok: true, data: { LaneId: data.LaneId, changes: db.changes() } });
     } else if (type === 'insert') {
       db.exec({
         sql: 'INSERT INTO Lanes (Name, Address1, Address2, City, State, Zip, Telephone, "Order") VALUES (?, ?, ?, ?, ?, ?, ?, ?)',

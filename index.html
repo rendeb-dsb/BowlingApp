@@ -78,6 +78,13 @@
     .lane-list th { background:#e7eef4; font-weight:700; }
     .lane-list th:first-child, .lane-list td:first-child { width:34px; text-align:center; }
     .lane-list input[type=radio] { margin:0; }
+    .app-message-backdrop { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(9,24,38,.45); }
+    .app-message-backdrop.show { display:flex; }
+    .app-message { width:min(420px, 100%); background:#fff; border:1px solid #9eafbd; border-radius:8px; box-shadow:0 12px 36px #0004; padding:18px; }
+    .app-message h2 { margin:0 0 14px; color:var(--navy); font-size:19px; }
+    .app-message p { margin:0 0 20px; line-height:1.45; overflow-wrap:anywhere; }
+    .app-message-actions { display:flex; justify-content:flex-end; }
+    .app-message-actions button { min-width:76px; }
     @media (max-width:480px) {
       .screen-titlebar h2 { font-size:20px; }
       .screen-titlebar { gap:6px; }
@@ -102,7 +109,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v12</div>
+    <div class="version">b1v13</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -136,7 +143,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v12</p>
+      <p><strong>Application version:</strong> b1v13</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -194,7 +201,14 @@
       </form>
     </section>
   </main>
-  <div class="footer">Bowling · Initial visual prototype · b1v12</div>
+  <div class="app-message-backdrop" id="appMessageBackdrop" role="presentation">
+    <section class="app-message" role="alertdialog" aria-modal="true" aria-labelledby="appMessageTitle" aria-describedby="appMessageText">
+      <h2 id="appMessageTitle">The Bowling App says:</h2>
+      <p id="appMessageText"></p>
+      <div class="app-message-actions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
+    </section>
+  </div>
+  <div class="footer">Bowling · Initial visual prototype · b1v13</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -205,6 +219,23 @@
     const lanesButton = document.getElementById('lanesButton');
     const lanesListScreen = document.getElementById('lanesListScreen');
     const addLaneScreen = document.getElementById('addLaneScreen');
+    let editingLaneId = null;
+    const messageBackdrop = document.getElementById('appMessageBackdrop');
+    const messageText = document.getElementById('appMessageText');
+    let messageOkCallback = null;
+    function showAppMessage(message, onOk = null) {
+      messageText.textContent = message;
+      messageOkCallback = onOk;
+      messageBackdrop.classList.add('show');
+      document.getElementById('appMessageOk').focus();
+    }
+    function closeAppMessage() {
+      messageBackdrop.classList.remove('show');
+      const callback = messageOkCallback;
+      messageOkCallback = null;
+      if (callback) callback();
+    }
+    document.getElementById('appMessageOk').addEventListener('click', closeAppMessage);
 
     function closeMenu() {
       actionsMenu.classList.remove('open');
@@ -242,15 +273,49 @@
         catch (error) { dbStatus.textContent = 'Unable to read BowlingDB: ' + error.message; }
       }
     }
-    function showAddLane() {
+    function prepareLaneForm(mode) {
+      editingLaneId = mode === 'change' ? editingLaneId : null;
       hideScreens();
       addLaneScreen.style.display = 'block';
       setLanesActive(true);
       closeMenu();
+      document.querySelector('#addLaneScreen .screen-titlebar h2').textContent = mode === 'change' ? 'Change - Lane Management' : 'Add Lanes Management';
       document.getElementById('laneForm').reset();
       document.getElementById('laneState').value = 'FL';
       document.getElementById('laneTelephone').value = '';
       clearFormMessage();
+    }
+    function showAddLane() {
+      editingLaneId = null;
+      prepareLaneForm('add');
+    }
+    async function showChangeLane() {
+      const selected = document.querySelector('input[name="selectedLane"]:checked');
+      if (!selected) {
+        showAppMessage('Select a record to change.');
+        return;
+      }
+      const laneId = Number(selected.value);
+      try {
+        const lane = await dbCall('get', { LaneId: laneId });
+        if (!lane) {
+          await refreshLanes();
+          showAppMessage('The selected record is no longer available.');
+          return;
+        }
+        editingLaneId = laneId;
+        prepareLaneForm('change');
+        document.getElementById('laneName').value = lane.Name || '';
+        document.getElementById('laneTelephone').value = lane.Telephone ? phoneMask(lane.Telephone) : '';
+        document.getElementById('laneOrder').value = String(lane.Order ?? '');
+        document.getElementById('laneAddress1').value = lane.Address1 || '';
+        document.getElementById('laneAddress2').value = lane.Address2 || '';
+        document.getElementById('laneCity').value = lane.City || '';
+        document.getElementById('laneState').value = lane.State || 'FL';
+        document.getElementById('laneZip').value = lane.Zip || '';
+      } catch (error) {
+        showAppMessage('Unable to load the selected lane: ' + error.message);
+      }
     }
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -260,7 +325,12 @@
     settingsButton.addEventListener('click', showSettings);
     document.getElementById('homeButton').addEventListener('click', showHome);
     lanesButton.addEventListener('click', showLanesList);
-    document.getElementById('cancelLaneButton').addEventListener('click', showLanesList);
+    document.getElementById('cancelLaneButton').addEventListener('click', () => {
+      editingLaneId = null;
+      document.getElementById('laneForm').reset();
+      clearFormMessage();
+      showLanesList();
+    });
 
     document.querySelectorAll('[data-action]').forEach(button => {
       button.addEventListener('click', () => {
@@ -268,12 +338,14 @@
         closeMenu();
         if (action === 'Add') {
           showAddLane();
+        } else if (action === 'Change') {
+          showChangeLane();
         } else if (action === 'Quit') {
-          alert('To close Bowling, use your device’s app switcher or browser controls.');
+          showAppMessage('To close Bowling, use your device’s app switcher or browser controls.');
         } else if (action === 'Import' || action === 'Export') {
-          alert(action + ' will be implemented when the BowlingDB database is added.');
+          showAppMessage(action + ' will be implemented in a later version.');
         } else {
-          alert(action + ' will be implemented in a later version.');
+          showAppMessage(action + ' will be implemented in a later version.');
         }
       });
     });
@@ -367,9 +439,14 @@
           Telephone: phone,
           Order: Number(orderText)
         };
-        const result = await dbCall('insert', payload);
+        const result = editingLaneId === null
+          ? await dbCall('insert', payload)
+          : await dbCall('update', { LaneId: editingLaneId, ...payload });
         await refreshLanes();
-        dbStatus.textContent = `BowlingDB ready · ${result.LaneId ? 'Lane saved with LaneId ' + result.LaneId : 'Lane saved'}`;
+        dbStatus.textContent = editingLaneId === null
+          ? `BowlingDB ready · Lane saved with LaneId ${result.LaneId}`
+          : `BowlingDB ready · Lane ${editingLaneId} updated`;
+        editingLaneId = null;
         document.getElementById('laneForm').reset();
         stateInput.value = 'FL';
         telephone.value = '';
@@ -496,7 +573,7 @@
       if (!event.target.closest('.menu-wrap')) closeMenu();
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeMenu();
+      if (event.key === 'Escape') { if (messageBackdrop.classList.contains('show')) closeAppMessage(); else closeMenu(); }
     });
     (async () => {
       try {
