@@ -80,6 +80,8 @@
     .lane-list th { background:#e7eef4; font-weight:700; }
     .lane-list th:first-child, .lane-list td:first-child { width:34px; text-align:center; }
     .lane-list input[type=radio] { margin:0; }
+    .teams-list { min-width:390px; table-layout:fixed; }
+    .teams-list th:nth-child(3), .teams-list td:nth-child(3) { width:30px; min-width:30px; max-width:30px; padding-left:2px; padding-right:2px; text-align:center; overflow:hidden; }
     .bowlers-list { min-width:390px; table-layout:fixed; }
     .bowlers-list th:nth-child(2), .bowlers-list td:nth-child(2) { width:66px; text-align:center; }
     .bowlers-list th:nth-child(3), .bowlers-list td:nth-child(3),
@@ -115,7 +117,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v22</div>
+    <div class="version">b1v23</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -152,7 +154,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v22</p>
+      <p><strong>Application version:</strong> b1v23</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -267,7 +269,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v22</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v23</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -619,8 +621,8 @@
     async function refreshTeams() {
       const teams = await dbCall('listTeams'); const content = document.getElementById('teamsListContent');
       if (!teams.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamsDbStatus').textContent = 'BowlingDB ready'; return; }
-      const body = teams.map(team => `<tr><td class="lane-radio"><input type="radio" name="selectedTeam" value="${Number(team.TeamId)}" aria-label="Select team ${Number(team.TeamId)}"></td><td>${escapeHtml(team.Name)}</td><td>${escapeHtml(team.LeagueName)}</td><td>${Number(team.Active) === 1 ? 'Yes' : 'No'}</td></tr>`).join('');
-      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Teams"><thead><tr><th aria-label="Select"></th><th>Name</th><th>League</th><th>Active</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Each team is associated with one league. Active is shown as Yes or No.</p>`;
+      const body = teams.map(team => `<tr><td class="lane-radio"><input type="radio" name="selectedTeam" value="${Number(team.TeamId)}" aria-label="Select team ${Number(team.TeamId)}"></td><td>${escapeHtml(team.Name)}</td><td aria-label="Active: ${Number(team.Active) === 1 ? 'Yes' : 'No'}">${Number(team.Active) === 1 ? 'Yes' : 'No'}</td><td>${escapeHtml(team.LeagueName)}</td></tr>`).join('');
+      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list teams-list" aria-label="Teams"><thead><tr><th aria-label="Select"></th><th>Name</th><th aria-label="Active" title="Active">A</th><th>League</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Each team is associated with one league. A = Active (Yes or No).</p>`;
       document.getElementById('teamsDbStatus').textContent = 'BowlingDB ready';
     }
     function showTeamFormMessage(message) { const el = document.getElementById('teamFormMessage'); el.textContent = message; el.classList.add('show'); }
@@ -693,7 +695,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v22', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v23', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
