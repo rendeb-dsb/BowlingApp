@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 14 (b1v14)
+Bowling PWA — Build 1 Version 14 (b1v15)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -30,3 +30,8 @@ Package layout
 - sqlite-worker.js
 - icons/bowling.svg
 - images/bowling-home.png
+
+
+b1v15 correction:
+- Change screen selected-lane retrieval uses requestPayload and laneRecord variables, avoiding the reported temporal-dead-zone error.
+- The SQLite worker URL is versioned (?v=b1v15) and explicitly precached so an older cached worker script is not reused.
