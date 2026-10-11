@@ -117,7 +117,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v24</div>
+    <div class="version">b1v25</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -155,7 +155,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v24</p>
+      <p><strong>Application version:</strong> b1v25</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -286,7 +286,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v24</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v25</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -795,7 +795,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v24', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v25', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -805,7 +805,12 @@
         else resolve.reject(new Error(message.error || 'Database operation failed.'));
       };
       worker.onerror = event => {
-        dbStatus.textContent = 'Database worker could not start.';
+        dbStatus.textContent = 'Database worker failed. Close other Bowling tabs, then reload this page.';
+        const error = new Error(event.message || 'Database worker failed.');
+        for (const [id, request] of pending) {
+          pending.delete(id);
+          request.reject(error);
+        }
         console.error('SQLite worker error:', event.message);
       };
     } catch (error) {

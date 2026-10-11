@@ -65,15 +65,27 @@ async function initializeOnce() {
   sqliteVersion = sqlite3.version.libVersion;
   return { version: sqliteVersion };
 }
-function initialize() {
-  if (db) return Promise.resolve({ version: sqliteVersion });
-  if (!initializationPromise) {
-    initializationPromise = initializeOnce().catch(error => {
-      // Permit a safe retry after a failed initialization attempt.
-      initializationPromise = null;
+async function initialize() {
+  if (db) return { version: sqliteVersion };
+  if (initializationPromise) return initializationPromise;
+  initializationPromise = (async () => {
+    try {
+      return await initializeOnce();
+    } catch (error) {
+      // A failed SAH-pool/database open can leave handles allocated even if
+      // the Database constructor did not finish. Close the pool before retrying.
+      try { if (db && typeof db.close === 'function') db.close(); } catch (_) {}
+      db = null;
+      try {
+        if (poolUtil && typeof poolUtil.close === 'function') await poolUtil.close();
+      } catch (_) {}
+      poolUtil = null;
+      sqliteVersion = null;
       throw error;
-    });
-  }
+    } finally {
+      initializationPromise = null;
+    }
+  })();
   return initializationPromise;
 }
 self.onmessage = async event => {
