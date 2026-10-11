@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 17 (b1v17)
+Bowling PWA — Build 1 Version 17 (b1v18)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -32,12 +32,12 @@ Package layout
 - images/bowling-home.png
 
 
-b1v17 correction:
+b1v18 correction:
 - Change screen selected-lane retrieval uses requestPayload and laneRecord variables, avoiding the reported temporal-dead-zone error.
-- The SQLite worker URL is versioned (?v=b1v17) and explicitly precached so an older cached worker script is not reused.
+- The SQLite worker URL is versioned (?v=b1v18) and explicitly precached so an older cached worker script is not reused.
 
 
-b1v17 changes
+b1v18 changes
 - Actions > Delete is active on the Lanes list.
 - Without a selected lane, shows 'Please select a row to delete.' with OK.
 - With a selected lane, asks 'Are you sure you want to delete this record?' with Yes and No.
@@ -46,7 +46,7 @@ b1v17 changes
 - All popup dialogs retain the title 'The Bowling App says:'.
 
 
-b1v17 Bowlers table
+b1v18 Bowlers table
 - Adds the Bowlers table to the existing BowlingDB without dropping or recreating Lanes.
 - Fields: BowlerId INTEGER PRIMARY KEY AUTOINCREMENT; FirstName TEXT NOT NULL; LastName TEXT NOT NULL; Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0,1)).
 - Adds Bowlers menu and list with First Name, Last Name, and Active (Yes/No); BowlerId remains hidden.
@@ -55,3 +55,8 @@ b1v17 Bowlers table
 - Change loads the selected bowler; Save inserts or updates; Cancel returns to Bowlers list.
 - Delete uses the standard Bowling App confirmation dialog. No preserves selection; Yes deletes the selected bowler.
 - Existing Lanes records and table are retained.
+
+
+b1v18 Bowlers list layout update
+- Column order is radio button, Active, First Name, Last Name.
+- First Name and Last Name columns have fixed, narrower widths (120px each) to reduce the list width.

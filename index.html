@@ -80,6 +80,10 @@
     .lane-list th { background:#e7eef4; font-weight:700; }
     .lane-list th:first-child, .lane-list td:first-child { width:34px; text-align:center; }
     .lane-list input[type=radio] { margin:0; }
+    .bowlers-list { min-width:390px; table-layout:fixed; }
+    .bowlers-list th:nth-child(2), .bowlers-list td:nth-child(2) { width:66px; text-align:center; }
+    .bowlers-list th:nth-child(3), .bowlers-list td:nth-child(3),
+    .bowlers-list th:nth-child(4), .bowlers-list td:nth-child(4) { width:120px; }
     .app-message-backdrop { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(9,24,38,.45); }
     .app-message-backdrop.show { display:flex; }
     .app-message { width:min(420px, 100%); background:#fff; border:1px solid #9eafbd; border-radius:8px; box-shadow:0 12px 36px #0004; padding:18px; }
@@ -111,7 +115,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v17</div>
+    <div class="version">b1v18</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -146,7 +150,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v17</p>
+      <p><strong>Application version:</strong> b1v18</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -229,7 +233,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v17</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v18</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -476,7 +480,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v17', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v18', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -520,8 +524,8 @@
     async function refreshBowlers() {
       const bowlers = await dbCall('listBowlers'); const content = document.getElementById('bowlersListContent');
       if (!bowlers.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; return; }
-      const body = bowlers.map(bowler => `<tr><td class="lane-radio"><input type="radio" name="selectedBowler" value="${Number(bowler.BowlerId)}" aria-label="Select bowler ${Number(bowler.BowlerId)}"></td><td>${escapeHtml(bowler.FirstName)}</td><td>${escapeHtml(bowler.LastName)}</td><td>${Number(bowler.Active) === 1 ? 'Yes' : 'No'}</td></tr>`).join('');
-      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Bowlers"><thead><tr><th aria-label="Select"></th><th>First Name</th><th>Last Name</th><th>Active</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Select a bowler using its radio button. Active is shown as Yes or No.</p>`;
+      const body = bowlers.map(bowler => `<tr><td class="lane-radio"><input type="radio" name="selectedBowler" value="${Number(bowler.BowlerId)}" aria-label="Select bowler ${Number(bowler.BowlerId)}"></td><td>${Number(bowler.Active) === 1 ? 'Yes' : 'No'}</td><td>${escapeHtml(bowler.FirstName)}</td><td>${escapeHtml(bowler.LastName)}</td></tr>`).join('');
+      content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list bowlers-list" aria-label="Bowlers"><thead><tr><th aria-label="Select"></th><th>Active</th><th>First Name</th><th>Last Name</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Select a bowler using its radio button. Active is shown as Yes or No.</p>`;
     }
     function showBowlerFormMessage(message) { const element = document.getElementById('bowlerFormMessage'); element.textContent = message; element.classList.add('show'); }
     function clearBowlerFormMessage() { const element = document.getElementById('bowlerFormMessage'); element.textContent = ''; element.classList.remove('show'); }
