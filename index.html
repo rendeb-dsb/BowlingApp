@@ -43,6 +43,14 @@
     .display-screen { display:none; width:100%; align-self:stretch; }
     #displayArea { align-items:stretch; justify-content:flex-start; }
     .lanes-empty { width:100%; text-align:center; padding:28px 12px; color:#33495b; }
+    .db-status { margin:0 0 10px; font-size:13px; color:#526577; }
+    .form-message { display:none; margin:0 0 12px; padding:9px 11px; border-radius:4px; background:#fff0ee; color:#8b1e16; border:1px solid #e4aaa5; font-size:14px; }
+    .form-message.show { display:block; }
+    .lanes-table-wrap { width:100%; overflow:auto; }
+    .lane-list td { overflow-wrap:anywhere; }
+    .lane-list .lane-radio { width:34px; text-align:center; }
+    .lane-list .lane-order { width:54px; text-align:right; }
+    .list-note { color:#526577; font-size:12px; margin:8px 0 0; }
     .screen-titlebar { width:100%; display:flex; align-items:center; gap:12px; padding:2px 0 14px; border-bottom:1px solid var(--line); margin-bottom:14px; }
     .screen-titlebar h2 { font-size:22px; font-weight:700; margin:0; color:var(--navy); }
     .title-actions { margin-left:auto; display:flex; gap:8px; }
@@ -94,7 +102,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v11</div>
+    <div class="version">b1v12</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -128,11 +136,12 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v11</p>
+      <p><strong>Application version:</strong> b1v12</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
-      <div class="lanes-empty">No records to display.</div>
+      <div class="db-status" id="dbStatus">Opening BowlingDB…</div>
+      <div id="lanesListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="addLaneScreen" aria-label="Add Lanes Management">
       <div class="screen-titlebar">
@@ -142,6 +151,7 @@
           <button class="action-button" id="cancelLaneButton" type="button">Cancel</button>
         </div>
       </div>
+      <div class="form-message" id="laneFormMessage" role="alert"></div>
       <form class="lane-form" id="laneForm" autocomplete="off">
       <table class="lane-fields" aria-label="Lane details">
         <tbody>
@@ -184,7 +194,7 @@
       </form>
     </section>
   </main>
-  <div class="footer">Bowling · Initial visual prototype · b1v11</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v12</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -222,11 +232,15 @@
       setLanesActive(false);
       closeMenu();
     }
-    function showLanesList() {
+    async function showLanesList() {
       hideScreens();
       lanesListScreen.style.display = 'block';
       setLanesActive(true);
       closeMenu();
+      if (dbReady) {
+        try { await refreshLanes(); }
+        catch (error) { dbStatus.textContent = 'Unable to read BowlingDB: ' + error.message; }
+      }
     }
     function showAddLane() {
       hideScreens();
@@ -236,6 +250,7 @@
       document.getElementById('laneForm').reset();
       document.getElementById('laneState').value = 'FL';
       document.getElementById('laneTelephone').value = '';
+      clearFormMessage();
     }
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -263,9 +278,113 @@
       });
     });
 
-    // Save is intentionally visual-only until BowlingDB is implemented.
-    document.getElementById('saveLaneButton').addEventListener('click', (event) => {
+    // SQLite is hosted in a dedicated worker and persisted in OPFS.
+    const dbStatus = document.getElementById('dbStatus');
+    const lanesListContent = document.getElementById('lanesListContent');
+    const formMessage = document.getElementById('laneFormMessage');
+    let dbReady = false;
+    let worker = null;
+    let requestId = 0;
+    const pending = new Map();
+    try {
+      worker = new Worker('./sqlite-worker.js', { type: 'module' });
+      worker.onmessage = event => {
+        const message = event.data || {};
+        const resolve = pending.get(message.id);
+        if (!resolve) return;
+        pending.delete(message.id);
+        if (message.ok) resolve.resolve(message.data);
+        else resolve.reject(new Error(message.error || 'Database operation failed.'));
+      };
+      worker.onerror = event => {
+        dbStatus.textContent = 'Database worker could not start.';
+        console.error('SQLite worker error:', event.message);
+      };
+    } catch (error) {
+      dbStatus.textContent = 'Unable to start SQLite database worker.';
+    }
+    function dbCall(type, data) {
+      return new Promise((resolve, reject) => {
+        if (!worker) return reject(new Error('The database worker is unavailable.'));
+        const id = ++requestId;
+        pending.set(id, { resolve, reject });
+        worker.postMessage({ id, type, data });
+      });
+    }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    async function refreshLanes() {
+      const lanes = await dbCall('list');
+      if (!lanes.length) {
+        lanesListContent.innerHTML = '<div class="lanes-empty">No records to display.</div>';
+        return;
+      }
+      const body = lanes.map(lane => `<tr>
+        <td class="lane-radio"><input type="radio" name="selectedLane" value="${Number(lane.LaneId)}" aria-label="Select lane ${Number(lane.LaneId)}"></td>
+        <td class="lane-order">${Number(lane.Order)}</td><td>${escapeHtml(lane.Name)}</td>
+        <td>${escapeHtml(lane.Telephone ? '(' + lane.Telephone.slice(0,3) + ') ' + lane.Telephone.slice(3,6) + '-' + lane.Telephone.slice(6) : '')}</td>
+        <td>${escapeHtml(lane.Address1)}</td><td>${escapeHtml(lane.City)}</td><td>${escapeHtml(lane.State)}</td><td>${escapeHtml(lane.Zip)}</td>
+      </tr>`).join('');
+      lanesListContent.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Lanes"><thead><tr><th aria-label="Select"></th><th>Order</th><th>Name</th><th>Telephone</th><th>Address1</th><th>City</th><th>ST</th><th>Zip</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Select a lane using its radio button.</p>`;
+    }
+    function showFormMessage(message) {
+      formMessage.textContent = message;
+      formMessage.classList.add('show');
+    }
+    function clearFormMessage() {
+      formMessage.textContent = '';
+      formMessage.classList.remove('show');
+    }
+    function readPhoneDigits() {
+      return telephone.value.replace(/\D/g, '').slice(0, 10);
+    }
+    document.getElementById('saveLaneButton').addEventListener('click', async event => {
       event.preventDefault();
+      clearFormMessage();
+      const name = document.getElementById('laneName').value.trim();
+      const state = stateInput.value.trim().toUpperCase();
+      const zip = document.getElementById('laneZip').value.trim();
+      const phone = readPhoneDigits();
+      const orderText = document.getElementById('laneOrder').value.trim();
+      if (!name) return showFormMessage('Name is required.');
+      if (!orderText || !/^\d+$/.test(orderText) || Number(orderText) < 1 || !Number.isSafeInteger(Number(orderText))) return showFormMessage('Order must be a positive whole number.');
+      if (!/^[A-Z]{2}$/.test(state)) return showFormMessage('State must contain exactly two letters.');
+      if (zip && !/^\d{5}$/.test(zip)) return showFormMessage('Zip must contain exactly five digits when supplied.');
+      if (phone && phone.length !== 10) return showFormMessage('Telephone must contain exactly ten digits when supplied.');
+      if (!dbReady) return showFormMessage('BowlingDB is not ready yet. Please try again in a moment.');
+      const saveButton = document.getElementById('saveLaneButton');
+      saveButton.disabled = true;
+      saveButton.textContent = 'Saving…';
+      try {
+        const payload = {
+          Name: name,
+          Address1: document.getElementById('laneAddress1').value.trim(),
+          Address2: document.getElementById('laneAddress2').value.trim(),
+          City: document.getElementById('laneCity').value.trim(),
+          State: state,
+          Zip: zip,
+          Telephone: phone,
+          Order: Number(orderText)
+        };
+        const result = await dbCall('insert', payload);
+        await refreshLanes();
+        dbStatus.textContent = `BowlingDB ready · ${result.LaneId ? 'Lane saved with LaneId ' + result.LaneId : 'Lane saved'}`;
+        document.getElementById('laneForm').reset();
+        stateInput.value = 'FL';
+        telephone.value = '';
+        clearFormMessage();
+        showLanesList();
+      } catch (error) {
+        if (/UNIQUE constraint failed: Lanes\.Order/i.test(error.message)) showFormMessage('That Order number is already assigned. Choose a unique Order number.');
+        else if (/CHECK constraint failed: Lanes\.State/i.test(error.message)) showFormMessage('State must contain exactly two uppercase letters.');
+        else if (/CHECK constraint failed: Lanes\.Zip/i.test(error.message)) showFormMessage('Zip must contain exactly five digits when supplied.');
+        else if (/CHECK constraint failed: Lanes\.Telephone/i.test(error.message)) showFormMessage('Telephone must contain exactly ten digits when supplied.');
+        else showFormMessage('The lane could not be saved: ' + error.message);
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save';
+      }
     });
     document.getElementById('laneForm').addEventListener('submit', event => event.preventDefault());
 
@@ -379,6 +498,18 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeMenu();
     });
+    (async () => {
+      try {
+        const info = await dbCall('init');
+        dbReady = true;
+        dbStatus.textContent = `BowlingDB ready · SQLite ${info.version}`;
+        await refreshLanes();
+      } catch (error) {
+        dbStatus.textContent = 'BowlingDB could not be opened: ' + error.message;
+        console.error('BowlingDB initialization failed:', error);
+      }
+    })();
+
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
     }
