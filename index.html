@@ -82,7 +82,7 @@
     .lane-list input[type=radio] { margin:0; }
     .teams-list { min-width:390px; table-layout:fixed; }
     .team-members-list { min-width:420px; table-layout:fixed; }
-    .team-members-list th:nth-child(2), .team-members-list td:nth-child(2) { width:200px; min-width:200px; max-width:200px; }
+    .team-members-list th:nth-child(2), .team-members-list td:nth-child(2) { width:150px; min-width:150px; max-width:150px; }
     .teams-list th:nth-child(3), .teams-list td:nth-child(3) { width:60px; min-width:60px; max-width:60px; padding-left:2px; padding-right:2px; text-align:center; overflow:hidden; }
     .bowlers-list { min-width:390px; table-layout:fixed; }
     .bowlers-list th:nth-child(2), .bowlers-list td:nth-child(2) { width:66px; text-align:center; }
@@ -119,7 +119,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v26</div>
+    <div class="version">b1v27</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -157,7 +157,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v26</p>
+      <p><strong>Application version:</strong> b1v27</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -288,7 +288,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v26</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v27</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -518,7 +518,7 @@
 
     async function showLeaguesList() {
       currentEntity = 'Leagues'; hideScreens(); leaguesListScreen.style.display = 'block';
-      setLanesActive(false); setBowlersActive(false); setLeaguesActive(true); closeMenu();
+      setLanesActive(false); setBowlersActive(false); setTeamsActive(false); setTeamMembersActive(false); setLeaguesActive(true); closeMenu();
       if (dbReady) { try { await refreshLeagues(); } catch (error) { document.getElementById('leaguesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
     }
     async function loadLeagueLocations(selectedLaneId = '') {
@@ -535,7 +535,7 @@
     }
     async function prepareLeagueForm(mode) {
       hideScreens(); leagueFormScreen.style.display = 'block'; currentEntity = 'Leagues';
-      setLanesActive(false); setBowlersActive(false); setLeaguesActive(true); closeMenu();
+      setLanesActive(false); setBowlersActive(false); setTeamsActive(false); setTeamMembersActive(false); setLeaguesActive(true); closeMenu();
       document.getElementById('leagueFormTitle').textContent = mode === 'change' ? 'Change - League Management' : 'Add League Management';
       document.getElementById('leagueForm').reset(); document.getElementById('leagueActive').checked = true;
       clearLeagueFormMessage(); await loadLeagueLocations();
@@ -602,7 +602,7 @@
 
     async function showTeamsList() {
       currentEntity = 'Teams'; hideScreens(); teamsListScreen.style.display = 'block';
-      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(true); closeMenu();
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamMembersActive(false); setTeamsActive(true); closeMenu();
       if (dbReady) { try { await refreshTeams(); } catch (error) { document.getElementById('teamsDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
     }
     async function loadTeamLeagues(selectedId = '') {
@@ -616,7 +616,7 @@
     }
     async function prepareTeamForm(mode) {
       hideScreens(); teamFormScreen.style.display = 'block'; currentEntity = 'Teams';
-      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(true); closeMenu();
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamMembersActive(false); setTeamsActive(true); closeMenu();
       document.getElementById('teamFormTitle').textContent = mode === 'change' ? 'Change - Team Management' : 'Add Team Management';
       document.getElementById('teamForm').reset(); document.getElementById('teamActive').checked = true; clearTeamFormMessage(); await loadTeamLeagues();
     }
@@ -797,7 +797,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v26', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v27', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
