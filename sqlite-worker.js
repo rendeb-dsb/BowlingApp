@@ -162,7 +162,7 @@ self.onmessage = async event => {
     } else if (type === 'listTeamLeagues') {
       self.postMessage({ id, ok: true, data: rows('SELECT LeagueId, LeagueName FROM Leagues ORDER BY LeagueName COLLATE NOCASE, LeagueId') });
     } else if (type === 'listTeams') {
-      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.Active, Teams.LeagueId, Teams.TeamType, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId = Teams.LeagueId ORDER BY Teams.Name COLLATE NOCASE, Teams.TeamId') });
+      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.Active, Teams.LeagueId, Teams.TeamType, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId = Teams.LeagueId ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
     } else if (type === 'getTeam') {
       self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name, Active, LeagueId, TeamType FROM Teams WHERE TeamId = ?', [requestPayload.TeamId])[0] || null });
     } else if (type === 'insertTeam') {
@@ -175,11 +175,17 @@ self.onmessage = async event => {
       db.exec({ sql: 'DELETE FROM Teams WHERE TeamId = ?', bind: [requestPayload.TeamId] });
       self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, changes: db.changes() } });
     } else if (type === 'listActiveTeams') {
-      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId=Teams.LeagueId WHERE Teams.Active=1 ORDER BY Teams.Name COLLATE NOCASE, Teams.TeamId') });
+      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId=Teams.LeagueId WHERE Teams.Active=1 ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
     } else if (type === 'listActiveBowlers') {
       self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
+    } else if (type === 'listTeamsForMemberFilter') {
+      self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name FROM Teams ORDER BY Name COLLATE NOCASE, TeamId') });
     } else if (type === 'listTeamMembers') {
-      self.postMessage({ id, ok: true, data: rows('SELECT TeamMembers.TeamId, TeamMembers.BowlerId, Teams.Name AS TeamName, Bowlers.FirstName, Bowlers.LastName FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId ORDER BY Teams.Name COLLATE NOCASE, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE') });
+      const teamId = Number(requestPayload?.TeamId ?? -1);
+      const sql = 'SELECT TeamMembers.TeamId, TeamMembers.BowlerId, Teams.Name AS TeamName, Bowlers.FirstName, Bowlers.LastName FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId ' +
+        (teamId === -1 ? '' : 'WHERE TeamMembers.TeamId=? ') +
+        'ORDER BY Teams.Name COLLATE NOCASE, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE';
+      self.postMessage({ id, ok: true, data: rows(sql, teamId === -1 ? [] : [teamId]) });
     } else if (type === 'insertTeamMember') {
       if (!rows('SELECT TeamId FROM Teams WHERE TeamId=? AND Active=1', [requestPayload.TeamId]).length) throw new Error('Only active teams can have new memberships.');
       if (!rows('SELECT BowlerId FROM Bowlers WHERE BowlerId=? AND Active=1', [requestPayload.BowlerId]).length) throw new Error('Only active bowlers can be assigned to teams.');
