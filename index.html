@@ -119,7 +119,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v31</div>
+    <div class="version">b1v32</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -157,7 +157,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v31</p>
+      <p><strong>Application version:</strong> b1v32</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -295,7 +295,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v31</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v32</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -691,7 +691,19 @@
     async function showTeamMembersList() {
       currentEntity = 'TeamMembers'; hideScreens(); teamMembersListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setTeamMembersActive(true); closeMenu();
-      if (dbReady) { try { await refreshTeamMembers(); } catch (error) { document.getElementById('teamMembersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
+      if (dbReady) {
+        try {
+          await loadTeamMembersFilter();
+          await refreshTeamMembers();
+        } catch (error) { document.getElementById('teamMembersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
+      }
+    }
+    async function loadTeamMembersFilter() {
+      const select = document.getElementById('teamMembersFilter');
+      const previous = select.value || '-1';
+      const teams = await dbCall('listTeamsForMemberFilter');
+      select.innerHTML = '<option value="-1">All</option>' + teams.map(team => `<option value="${Number(team.TeamId)}">${escapeHtml(team.Name)}</option>`).join('');
+      select.value = [...select.options].some(option => option.value === previous) ? previous : '-1';
     }
     async function loadTeamMemberChoices(teamId = '', bowlerId = '') {
       const [teams, bowlers] = await Promise.all([dbCall('listActiveTeams'), dbCall('listActiveBowlers')]);
@@ -732,7 +744,8 @@
       }, () => { teamMembersListScreen.style.display = 'block'; setTeamMembersActive(true); });
     }
     async function refreshTeamMembers() {
-      const filterValue = Number(document.getElementById('teamMembersFilter').value || -1);
+      const filterControl = document.getElementById('teamMembersFilter');
+      const filterValue = filterControl.value === '' ? -1 : Number(filterControl.value);
       const memberships = await dbCall('listTeamMembers', { TeamId: filterValue });
       const content = document.getElementById('teamMembersListContent');
       if (!memberships.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamMembersDbStatus').textContent = 'BowlingDB ready'; return; }
@@ -740,6 +753,13 @@
       content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list team-members-list" aria-label="Team Members"><thead><tr><th aria-label="Select"></th><th>Team</th><th>Bowler</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Each bowler can appear only once on a particular team.</p>`;
       document.getElementById('teamMembersDbStatus').textContent = 'BowlingDB ready';
     }
+    document.getElementById('teamMembersFilter').addEventListener('change', async () => {
+      try {
+        await refreshTeamMembers();
+      } catch (error) {
+        document.getElementById('teamMembersDbStatus').textContent = 'Unable to filter team members: ' + error.message;
+      }
+    });
     function showTeamMemberFormMessage(message) { const el = document.getElementById('teamMemberFormMessage'); el.textContent = message; el.classList.add('show'); }
     function clearTeamMemberFormMessage() { const el = document.getElementById('teamMemberFormMessage'); el.textContent = ''; el.classList.remove('show'); }
     document.getElementById('saveTeamMemberButton').addEventListener('click', async event => {
@@ -808,7 +828,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v31', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v32', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
