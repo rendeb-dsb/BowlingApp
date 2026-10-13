@@ -48,6 +48,7 @@ async function initializeOnce() {
     Name TEXT NOT NULL CHECK(length(trim(Name)) > 0),
     Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1)),
     LeagueId INTEGER NOT NULL,
+    TeamType TEXT NOT NULL DEFAULT 'M' CHECK(TeamType IN ('P', 'M')),
     FOREIGN KEY (LeagueId) REFERENCES Leagues(LeagueId) ON DELETE RESTRICT
   );
   CREATE TABLE IF NOT EXISTS TeamMembers (
@@ -61,6 +62,11 @@ async function initializeOnce() {
   const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
   if (!leagueColumns.includes('EndDate')) {
     db.exec("ALTER TABLE Leagues ADD COLUMN EndDate TEXT CHECK(EndDate IS NULL OR (length(EndDate)=10 AND EndDate GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'))");
+  }
+  const teamColumns = rows('PRAGMA table_info(Teams)').map(column => column.name);
+  if (!teamColumns.includes('TeamType')) {
+    db.exec("ALTER TABLE Teams ADD COLUMN TeamType TEXT NOT NULL DEFAULT 'M' CHECK(TeamType IN ('P', 'M'))");
+    db.exec("UPDATE Teams SET TeamType='M'");
   }
   sqliteVersion = sqlite3.version.libVersion;
   return { version: sqliteVersion };
@@ -156,14 +162,14 @@ self.onmessage = async event => {
     } else if (type === 'listTeamLeagues') {
       self.postMessage({ id, ok: true, data: rows('SELECT LeagueId, LeagueName FROM Leagues ORDER BY LeagueName COLLATE NOCASE, LeagueId') });
     } else if (type === 'listTeams') {
-      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.Active, Teams.LeagueId, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId = Teams.LeagueId ORDER BY Teams.Name COLLATE NOCASE, Teams.TeamId') });
+      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.Active, Teams.LeagueId, Teams.TeamType, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId = Teams.LeagueId ORDER BY Teams.Name COLLATE NOCASE, Teams.TeamId') });
     } else if (type === 'getTeam') {
-      self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name, Active, LeagueId FROM Teams WHERE TeamId = ?', [requestPayload.TeamId])[0] || null });
+      self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name, Active, LeagueId, TeamType FROM Teams WHERE TeamId = ?', [requestPayload.TeamId])[0] || null });
     } else if (type === 'insertTeam') {
-      db.exec({ sql: 'INSERT INTO Teams (Name, Active, LeagueId) VALUES (?, ?, ?)', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId] });
+      db.exec({ sql: 'INSERT INTO Teams (Name, Active, LeagueId, TeamType) VALUES (?, ?, ?, ?)', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamType] });
       self.postMessage({ id, ok: true, data: { TeamId: db.selectValue('SELECT last_insert_rowid()') } });
     } else if (type === 'updateTeam') {
-      db.exec({ sql: 'UPDATE Teams SET Name=?, Active=?, LeagueId=? WHERE TeamId=?', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamId] });
+      db.exec({ sql: 'UPDATE Teams SET Name=?, Active=?, LeagueId=?, TeamType=? WHERE TeamId=?', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamType, requestPayload.TeamId] });
       self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, changes: db.changes() } });
     } else if (type === 'deleteTeam') {
       db.exec({ sql: 'DELETE FROM Teams WHERE TeamId = ?', bind: [requestPayload.TeamId] });
