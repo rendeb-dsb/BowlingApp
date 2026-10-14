@@ -57,6 +57,21 @@ async function initializeOnce() {
     PRIMARY KEY (TeamId, BowlerId),
     FOREIGN KEY (TeamId) REFERENCES Teams(TeamId) ON DELETE CASCADE,
     FOREIGN KEY (BowlerId) REFERENCES Bowlers(BowlerId) ON DELETE CASCADE
+  );
+  CREATE TABLE IF NOT EXISTS Matches (
+    MatchId INTEGER PRIMARY KEY AUTOINCREMENT,
+    Location INTEGER NOT NULL,
+    LeagueId INTEGER NOT NULL,
+    Date TEXT NOT NULL CHECK (
+      length(Date)=10 AND Date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+    ),
+    OurTeamId INTEGER NOT NULL,
+    OppoTeamId INTEGER NOT NULL,
+    CONSTRAINT CK_Matches_DifferentTeams CHECK (OurTeamId <> OppoTeamId),
+    FOREIGN KEY (Location) REFERENCES Lanes(LaneId) ON DELETE RESTRICT,
+    FOREIGN KEY (LeagueId) REFERENCES Leagues(LeagueId) ON DELETE RESTRICT,
+    FOREIGN KEY (OurTeamId) REFERENCES Teams(TeamId) ON DELETE RESTRICT,
+    FOREIGN KEY (OppoTeamId) REFERENCES Teams(TeamId) ON DELETE RESTRICT
   );`);
   // Upgrade existing b1v20 databases without removing saved league records.
   const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
@@ -178,6 +193,20 @@ self.onmessage = async event => {
       self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId=Teams.LeagueId WHERE Teams.Active=1 ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
     } else if (type === 'listActiveBowlers') {
       self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
+    } else if (type === 'listMatches') {
+      self.postMessage({ id, ok: true, data: rows(`SELECT Matches.MatchId, Matches.Date, Matches.Location, Matches.LeagueId,
+        Matches.OurTeamId, Matches.OppoTeamId, Lanes.Name AS LocationName, Leagues.LeagueName,
+        OurTeam.Name AS OurTeamName, OppoTeam.Name AS OppoTeamName
+        FROM Matches
+        JOIN Lanes ON Lanes.LaneId=Matches.Location
+        JOIN Leagues ON Leagues.LeagueId=Matches.LeagueId
+        JOIN Teams AS OurTeam ON OurTeam.TeamId=Matches.OurTeamId
+        JOIN Teams AS OppoTeam ON OppoTeam.TeamId=Matches.OppoTeamId
+        ORDER BY Matches.Date DESC, Matches.MatchId DESC`) });
+    } else if (type === 'insertMatch') {
+      db.exec({ sql: 'INSERT INTO Matches (Location, LeagueId, Date, OurTeamId, OppoTeamId) VALUES (?, ?, ?, ?, ?)',
+        bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId] });
+      self.postMessage({ id, ok: true, data: { MatchId: db.selectValue('SELECT last_insert_rowid()') } });
     } else if (type === 'listTeamsForMemberFilter') {
       self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name FROM Teams ORDER BY Name COLLATE NOCASE, TeamId') });
     } else if (type === 'listTeamMembers') {
