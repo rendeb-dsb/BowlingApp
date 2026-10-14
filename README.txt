@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 35 (b1v35)
+Bowling PWA — Build 1 Version 35 (b1v36)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -169,8 +169,8 @@ b1v34 additions:
 - Existing database file and records are preserved; MatchType is added to existing Matches with default M.
 
 
-b1v35 roster validation correction:
+b1v36 roster validation correction:
 - Practice sessions may have fewer than four bowlers per team. Score entry displays every distinct active bowler assigned to either selected team.
 - Match sessions still require eight distinct active bowlers (four per team, as configured through Team Members).
 - A Practice session with no active assigned bowlers displays a helpful message rather than opening an empty score grid.
-- Versioned app, worker URL, and service-worker cache updated to b1v35.
+- Versioned app, worker URL, and service-worker cache updated to b1v36.

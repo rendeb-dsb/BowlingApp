@@ -117,15 +117,18 @@
     }
   
     .scores-row-button { padding: 5px 8px; min-height: 30px; white-space: nowrap; }
-    .score-grid th, .score-grid td { padding: 6px; }
-    .score-grid td:first-child, .score-grid th:first-child { min-width: 145px; white-space: nowrap; }
+    .score-grid { table-layout: fixed; width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+    .score-grid th, .score-grid td { padding: 6px; box-sizing: border-box; }
+    .score-grid th:first-child, .score-grid td:first-child { width: 145px; min-width: 145px; max-width: 145px; white-space: nowrap; position: sticky; left: 0; z-index: 2; background: #e7eef4; }
+    .score-grid tbody td:first-child { background: #fff; }
+    .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 145px; min-width: 145px; max-width: 145px; }
     .score-entry { width: 74px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 5px; font-size: 16px; }
-    #scoresTableWrap { overflow-x: auto; }
+    #scoresTableWrap { overflow-x: auto; position: relative; }
   </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v35</div>
+    <div class="version">b1v36</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -164,7 +167,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v35</p>
+      <p><strong>Application version:</strong> b1v36</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -328,7 +331,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v35</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v36</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -968,7 +971,8 @@
           }
         } catch (_) {}
         if (activeScoreMatchType === 'M') scoreGameCount = 3;
-        document.getElementById('scoresTitle').textContent = `Scores — ${detail.Date} — ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
+        const titleDate = String(detail.Date).slice(0, 10).split('-').reverse().join('/');
+        document.getElementById('scoresTitle').textContent = `Scores - ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'} - ${titleDate}`;
         currentEntity = 'Scores'; hideScreens(); scoresScreen.style.display = 'block';
         setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu(); setScoresMessage('');
         renderScoreGrid();
@@ -1052,7 +1056,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v35', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v36', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

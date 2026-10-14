@@ -245,14 +245,18 @@ self.onmessage = async event => {
         if (uniqueKeys.has(key)) throw new Error('A bowler has duplicate entries for the same game.');
         uniqueKeys.add(key);
       }
-      const roster = rows('SELECT BowlerId FROM TeamMembers WHERE TeamId IN (SELECT OurTeamId FROM Matches WHERE MatchId=? UNION SELECT OppoTeamId FROM Matches WHERE MatchId=?)', [matchId, matchId]).map(r=>Number(r.BowlerId));
+      const roster = rows(`SELECT DISTINCT TM.BowlerId FROM TeamMembers TM JOIN Bowlers B ON B.BowlerId=TM.BowlerId
+        WHERE TM.TeamId IN (SELECT OurTeamId FROM Matches WHERE MatchId=? UNION SELECT OppoTeamId FROM Matches WHERE MatchId=?) AND B.Active=1`, [matchId, matchId]).map(r=>Number(r.BowlerId));
       const expected = [...new Set(roster)];
-      if (expected.length !== 8 || scores.length !== expected.length * gameNumbers.length) throw new Error('This match must have eight distinct rostered bowlers with one score per bowler per game.');
+      const requiredCount = match.MatchType === 'M' ? 8 : expected.length;
+      if (match.MatchType === 'M' && expected.length !== 8) throw new Error(`A Match requires eight distinct active rostered bowlers; this roster has ${expected.length}.`);
+      if (expected.length === 0) throw new Error('At least one active bowler must be assigned to the teams before saving scores.');
+      if (scores.length !== expected.length * gameNumbers.length) throw new Error(`Enter one score for each of the ${expected.length} participating bowlers in every game.`);
       const expectedSet = new Set(expected);
-      if (scores.some(s => !expectedSet.has(Number(s.BowlerId)))) throw new Error('A score references a bowler who is not on either team roster for this match.');
+      if (scores.some(s => !expectedSet.has(Number(s.BowlerId)))) throw new Error('A score references a bowler who is not an active member of either team roster for this match.');
       for (const gameNbr of gameNumbers) {
         const gameBowlers = scores.filter(s => Number(s.GameNbr) === gameNbr).map(s => Number(s.BowlerId));
-        if (gameBowlers.length !== 8 || new Set(gameBowlers).size !== 8 || gameBowlers.some(id => !expectedSet.has(id))) throw new Error(`Game ${gameNbr} must contain exactly one score for each of the eight bowlers.`);
+        if (gameBowlers.length !== requiredCount || new Set(gameBowlers).size !== requiredCount || gameBowlers.some(id => !expectedSet.has(id))) throw new Error(`Game ${gameNbr} must contain exactly one score for each participating bowler.`);
       }
       db.exec('BEGIN IMMEDIATE');
       try {
