@@ -125,7 +125,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v34</div>
+    <div class="version">b1v35</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -164,7 +164,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v34</p>
+      <p><strong>Application version:</strong> b1v35</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -328,7 +328,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v34</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v35</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -947,8 +947,12 @@
         if (!detail) return showAppMessage('The selected match could not be found.');
         activeScoreMatch = matchId; activeScoreMatchType = detail.MatchType;
         const bowlers = await dbCall('listMatchBowlers', { OurTeamId: detail.OurTeamId, OppoTeamId: detail.OppoTeamId });
-        if (bowlers.length !== 8 || new Set(bowlers.map(b => Number(b.BowlerId))).size !== 8) {
-          return showAppMessage(`This match needs eight distinct bowlers assigned through Team Members (four for each team). The current roster contains ${bowlers.length} distinct bowler${bowlers.length === 1 ? '' : 's'}. Please correct the team rosters before entering scores.`);
+        const distinctBowlerCount = new Set(bowlers.map(b => Number(b.BowlerId))).size;
+        if (activeScoreMatchType === 'M' && (bowlers.length !== 8 || distinctBowlerCount !== 8)) {
+          return showAppMessage(`A Match needs eight distinct active bowlers assigned through Team Members (four for each team). The current roster contains ${distinctBowlerCount} distinct bowler${distinctBowlerCount === 1 ? '' : 's'}. Please correct the team rosters before entering scores.`);
+        }
+        if (activeScoreMatchType === 'P' && distinctBowlerCount === 0) {
+          return showAppMessage('This Practice session has no active bowlers assigned through Team Members. Assign at least one active bowler to either team before entering scores.');
         }
         scoreBowlers = bowlers;
         const records = await dbCall('listScores', { MatchId: matchId });
@@ -1048,7 +1052,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v34', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v35', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

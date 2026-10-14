@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 34 (b1v34)
+Bowling PWA — Build 1 Version 35 (b1v35)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -167,3 +167,10 @@ b1v34 additions:
 - Scores can be reopened and corrected. Save validates every game has one score for each of eight rostered bowlers and replaces the match's score set in a single SQLite transaction; a failed save rolls back.
 - Unsaved score drafts are stored locally on the device and offered for recovery when the score screen is reopened.
 - Existing database file and records are preserved; MatchType is added to existing Matches with default M.
+
+
+b1v35 roster validation correction:
+- Practice sessions may have fewer than four bowlers per team. Score entry displays every distinct active bowler assigned to either selected team.
+- Match sessions still require eight distinct active bowlers (four per team, as configured through Team Members).
+- A Practice session with no active assigned bowlers displays a helpful message rather than opening an empty score grid.
+- Versioned app, worker URL, and service-worker cache updated to b1v35.
