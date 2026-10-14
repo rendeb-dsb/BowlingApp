@@ -67,17 +67,30 @@ async function initializeOnce() {
     ),
     OurTeamId INTEGER NOT NULL,
     OppoTeamId INTEGER NOT NULL,
+    MatchType TEXT NOT NULL DEFAULT 'M' CHECK(MatchType IN ('P', 'M')),
     CONSTRAINT CK_Matches_DifferentTeams CHECK (OurTeamId <> OppoTeamId),
     FOREIGN KEY (Location) REFERENCES Lanes(LaneId) ON DELETE RESTRICT,
     FOREIGN KEY (LeagueId) REFERENCES Leagues(LeagueId) ON DELETE RESTRICT,
     FOREIGN KEY (OurTeamId) REFERENCES Teams(TeamId) ON DELETE RESTRICT,
     FOREIGN KEY (OppoTeamId) REFERENCES Teams(TeamId) ON DELETE RESTRICT
+  );
+  CREATE TABLE IF NOT EXISTS Scores (
+    ScoreId INTEGER PRIMARY KEY AUTOINCREMENT,
+    MatchId INTEGER NOT NULL,
+    GameNbr INTEGER NOT NULL CHECK(GameNbr > 0),
+    BowlerId INTEGER NOT NULL,
+    Score INTEGER NOT NULL CHECK(Score >= 0 AND Score <= 300),
+    UNIQUE(MatchId, GameNbr, BowlerId),
+    FOREIGN KEY (MatchId) REFERENCES Matches(MatchId) ON DELETE CASCADE,
+    FOREIGN KEY (BowlerId) REFERENCES Bowlers(BowlerId) ON DELETE RESTRICT
   );`);
   // Upgrade existing b1v20 databases without removing saved league records.
   const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
   if (!leagueColumns.includes('EndDate')) {
     db.exec("ALTER TABLE Leagues ADD COLUMN EndDate TEXT CHECK(EndDate IS NULL OR (length(EndDate)=10 AND EndDate GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'))");
   }
+  const matchColumns = rows('PRAGMA table_info(Matches)').map(column => column.name);
+  if (!matchColumns.includes('MatchType')) db.exec("ALTER TABLE Matches ADD COLUMN MatchType TEXT NOT NULL DEFAULT 'M' CHECK(MatchType IN ('P', 'M'))");
   const teamColumns = rows('PRAGMA table_info(Teams)').map(column => column.name);
   if (!teamColumns.includes('TeamType')) {
     db.exec("ALTER TABLE Teams ADD COLUMN TeamType TEXT NOT NULL DEFAULT 'M' CHECK(TeamType IN ('P', 'M'))");
@@ -194,7 +207,7 @@ self.onmessage = async event => {
     } else if (type === 'listActiveBowlers') {
       self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
     } else if (type === 'listMatches') {
-      self.postMessage({ id, ok: true, data: rows(`SELECT Matches.MatchId, Matches.Date, Matches.Location, Matches.LeagueId,
+      self.postMessage({ id, ok: true, data: rows(`SELECT Matches.MatchId, Matches.Date, Matches.Location, Matches.LeagueId, Matches.MatchType,
         Matches.OurTeamId, Matches.OppoTeamId, Lanes.Name AS LocationName, Leagues.LeagueName,
         OurTeam.Name AS OurTeamName, OppoTeam.Name AS OppoTeamName
         FROM Matches
@@ -204,9 +217,50 @@ self.onmessage = async event => {
         JOIN Teams AS OppoTeam ON OppoTeam.TeamId=Matches.OppoTeamId
         ORDER BY Matches.Date DESC, Matches.MatchId DESC`) });
     } else if (type === 'insertMatch') {
-      db.exec({ sql: 'INSERT INTO Matches (Location, LeagueId, Date, OurTeamId, OppoTeamId) VALUES (?, ?, ?, ?, ?)',
-        bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId] });
+      db.exec({ sql: 'INSERT INTO Matches (Location, LeagueId, Date, OurTeamId, OppoTeamId, MatchType) VALUES (?, ?, ?, ?, ?, ?)',
+        bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.MatchType] });
       self.postMessage({ id, ok: true, data: { MatchId: db.selectValue('SELECT last_insert_rowid()') } });
+    } else if (type === 'getMatchForScores') {
+      self.postMessage({ id, ok: true, data: rows('SELECT MatchId, Date, OurTeamId, OppoTeamId, MatchType FROM Matches WHERE MatchId=?', [requestPayload.MatchId])[0] || null });
+    } else if (type === 'listMatchBowlers') {
+      self.postMessage({ id, ok: true, data: rows(`SELECT Bowlers.BowlerId, Bowlers.FirstName, Bowlers.LastName, trim(Bowlers.FirstName || ' ' || Bowlers.LastName) AS FullName, TeamMembers.TeamId
+        FROM TeamMembers JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId
+        WHERE TeamMembers.TeamId IN (?, ?) AND Bowlers.Active=1
+        ORDER BY CASE WHEN TeamMembers.TeamId=? THEN 0 ELSE 1 END, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`, [requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.OurTeamId]) });
+    } else if (type === 'listScores') {
+      self.postMessage({ id, ok: true, data: rows('SELECT ScoreId, MatchId, GameNbr, BowlerId, Score FROM Scores WHERE MatchId=? ORDER BY GameNbr, BowlerId', [requestPayload.MatchId]) });
+    } else if (type === 'saveMatchScores') {
+      const matchId = Number(requestPayload.MatchId);
+      const scores = requestPayload.Scores;
+      if (!Number.isInteger(matchId) || !Array.isArray(scores) || !scores.length) throw new Error('No score records were supplied.');
+      const match = rows('SELECT MatchType FROM Matches WHERE MatchId=?', [matchId])[0];
+      if (!match) throw new Error('The match no longer exists.');
+      const gameNumbers = [...new Set(scores.map(s => Number(s.GameNbr)))].sort((a,b)=>a-b);
+      if (gameNumbers.some((n,i)=>!Number.isInteger(n) || n !== i+1)) throw new Error('Game numbers must start at 1 and be consecutive.');
+      if (match.MatchType === 'M' && (gameNumbers.length !== 3 || gameNumbers[2] !== 3)) throw new Error('A Match must have exactly three games.');
+      const uniqueKeys = new Set();
+      for (const s of scores) {
+        if (!Number.isInteger(Number(s.GameNbr)) || Number(s.GameNbr)<1 || !Number.isInteger(Number(s.BowlerId)) || !Number.isInteger(Number(s.Score)) || Number(s.Score)<0 || Number(s.Score)>300) throw new Error('Scores must be whole numbers from 0 through 300, with valid game and bowler IDs.');
+        const key = `${Number(s.GameNbr)}:${Number(s.BowlerId)}`;
+        if (uniqueKeys.has(key)) throw new Error('A bowler has duplicate entries for the same game.');
+        uniqueKeys.add(key);
+      }
+      const roster = rows('SELECT BowlerId FROM TeamMembers WHERE TeamId IN (SELECT OurTeamId FROM Matches WHERE MatchId=? UNION SELECT OppoTeamId FROM Matches WHERE MatchId=?)', [matchId, matchId]).map(r=>Number(r.BowlerId));
+      const expected = [...new Set(roster)];
+      if (expected.length !== 8 || scores.length !== expected.length * gameNumbers.length) throw new Error('This match must have eight distinct rostered bowlers with one score per bowler per game.');
+      const expectedSet = new Set(expected);
+      if (scores.some(s => !expectedSet.has(Number(s.BowlerId)))) throw new Error('A score references a bowler who is not on either team roster for this match.');
+      for (const gameNbr of gameNumbers) {
+        const gameBowlers = scores.filter(s => Number(s.GameNbr) === gameNbr).map(s => Number(s.BowlerId));
+        if (gameBowlers.length !== 8 || new Set(gameBowlers).size !== 8 || gameBowlers.some(id => !expectedSet.has(id))) throw new Error(`Game ${gameNbr} must contain exactly one score for each of the eight bowlers.`);
+      }
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        db.exec({sql:'DELETE FROM Scores WHERE MatchId=?', bind:[matchId]});
+        for (const s of scores) db.exec({sql:'INSERT INTO Scores (MatchId, GameNbr, BowlerId, Score) VALUES (?, ?, ?, ?)', bind:[matchId, Number(s.GameNbr), Number(s.BowlerId), Number(s.Score)]});
+        db.exec('COMMIT');
+      } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
+      self.postMessage({ id, ok: true, data: { MatchId: matchId, count: scores.length } });
     } else if (type === 'listTeamsForMemberFilter') {
       self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name FROM Teams ORDER BY Name COLLATE NOCASE, TeamId') });
     } else if (type === 'listTeamMembers') {

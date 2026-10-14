@@ -1,11 +1,11 @@
-const CACHE_NAME = 'bowling-b1v33';
+const CACHE_NAME = 'bowling-b1v34';
 const APP_FILES = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/bowling.svg',
   './images/bowling-home.png',
-  './sqlite-worker.js?v=b1v33'
+  './sqlite-worker.js?v=b1v34'
 ];
 
 self.addEventListener('install', event => {

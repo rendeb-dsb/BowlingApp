@@ -115,11 +115,17 @@
       main { padding:8px; }
       .settings-panel { padding:18px; }
     }
+  
+    .scores-row-button { padding: 5px 8px; min-height: 30px; white-space: nowrap; }
+    .score-grid th, .score-grid td { padding: 6px; }
+    .score-grid td:first-child, .score-grid th:first-child { min-width: 145px; white-space: nowrap; }
+    .score-entry { width: 74px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 5px; font-size: 16px; }
+    #scoresTableWrap { overflow-x: auto; }
   </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v33</div>
+    <div class="version">b1v34</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -158,7 +164,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v33</p>
+      <p><strong>Application version:</strong> b1v34</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -298,6 +304,7 @@
       <form class="lane-form" id="matchForm" autocomplete="off">
         <table class="lane-fields" aria-label="Match details"><tbody>
           <tr><td class="label-cell"><label for="matchDate">Date:</label></td><td class="control-cell"><input id="matchDate" name="Date" type="date" required></td></tr>
+          <tr><td class="label-cell"><label for="matchType">Match Type:</label></td><td class="control-cell"><select id="matchType" name="MatchType" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="M">Match (3 games)</option><option value="P">Practice (variable games)</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchLocation">Location:</label></td><td class="control-cell"><select id="matchLocation" name="Location" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a bowling center</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchLeague">League:</label></td><td class="control-cell"><select id="matchLeague" name="LeagueId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a league</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchOurTeam">Our Team:</label></td><td class="control-cell"><select id="matchOurTeam" name="OurTeamId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select our team</option></select></td></tr>
@@ -305,6 +312,13 @@
         </tbody></table>
         <p class="list-note">Our Team and Opponent Team must be different. The date must be a valid calendar date.</p>
       </form>
+    </section>
+    <section class="display-screen" id="scoresScreen" aria-label="Match score entry">
+      <div class="screen-titlebar"><h2 id="scoresTitle">Score Entry</h2><div class="title-actions"><button class="action-button" id="nextGameButton" type="button">Next Game</button><button class="action-button primary" id="saveScoresButton" type="button">Save</button><button class="action-button" id="cancelScoresButton" type="button">Cancel</button></div></div>
+      <div class="db-status" id="scoresStatus"></div>
+      <div class="form-message" id="scoresMessage" role="alert"></div>
+      <div id="scoresTableWrap"></div>
+      <p class="list-note">Enter whole-number scores from 0 through 300. Leave no score blank when saving. Unsaved entries are kept as a recoverable draft on this device.</p>
     </section>
   </main>
   <div class="app-message-backdrop" id="appMessageBackdrop" role="presentation">
@@ -314,7 +328,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v33</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v34</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -340,6 +354,7 @@
     const teamMemberFormScreen = document.getElementById('teamMemberFormScreen');
     const matchesListScreen = document.getElementById('matchesListScreen');
     const matchFormScreen = document.getElementById('matchFormScreen');
+    const scoresScreen = document.getElementById('scoresScreen');
     let currentEntity = 'Lanes';
     let editingLaneId = null;
     let editingBowlerId = null;
@@ -401,6 +416,7 @@
       teamMemberFormScreen.style.display = 'none';
       matchesListScreen.style.display = 'none';
       matchFormScreen.style.display = 'none';
+      scoresScreen.style.display = 'none';
     }
     function setLanesActive(active) {
       lanesButton.classList.toggle('active', active);
@@ -823,8 +839,9 @@
       if (!matches.length) {
         content.innerHTML = '<div class="lanes-empty">No records to display.</div>';
       } else {
-        const rowsHtml = matches.map(match => `<tr><td class="lane-radio"><input type="radio" name="selectedMatch" value="${Number(match.MatchId)}" aria-label="Select match ${Number(match.MatchId)}"></td><td>${escapeHtml(match.Date)}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.OppoTeamName)}</td></tr>`).join('');
-        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th aria-label="Select"></th><th>Date</th><th>Location</th><th>League</th><th>Our Team</th><th>Opponent Team</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        const rowsHtml = matches.map(match => `<tr><td><button class="action-button scores-row-button" type="button" data-scores-match="${Number(match.MatchId)}">Scores</button></td><td class="lane-radio"><input type="radio" name="selectedMatch" value="${Number(match.MatchId)}" aria-label="Select match ${Number(match.MatchId)}"></td><td>${escapeHtml(match.Date)}</td><td>${match.MatchType === 'P' ? 'Practice (P)' : 'Match (M)'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.OppoTeamName)}</td></tr>`).join('');
+        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th>Action</th><th aria-label="Select"></th><th>Date</th><th>Type</th><th>Location</th><th>League</th><th>Our Team</th><th>Opponent Team</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        content.querySelectorAll('[data-scores-match]').forEach(button => button.addEventListener('click', () => openScores(Number(button.dataset.scoresMatch))));
       }
       document.getElementById('matchesDbStatus').textContent = `BowlingDB ready · ${matches.length} match${matches.length === 1 ? '' : 'es'}`;
     }
@@ -867,17 +884,18 @@
     document.getElementById('saveMatchButton').addEventListener('click', async event => {
       event.preventDefault(); clearMatchFormMessage();
       const DateValue = document.getElementById('matchDate').value;
+      const MatchType = document.getElementById('matchType').value;
       const Location = Number(document.getElementById('matchLocation').value);
       const LeagueId = Number(document.getElementById('matchLeague').value);
       const OurTeamId = Number(document.getElementById('matchOurTeam').value);
       const OppoTeamId = Number(document.getElementById('matchOppoTeam').value);
-      if (!DateValue || !Location || !LeagueId || !OurTeamId || !OppoTeamId) return showMatchFormMessage('Please complete all five fields.');
+      if (!DateValue || !Location || !LeagueId || !OurTeamId || !OppoTeamId) return showMatchFormMessage('Please complete all six fields.');
       const parsed = new Date(`${DateValue}T00:00:00`);
       if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== Number(DateValue.slice(0,4)) || parsed.getMonth()+1 !== Number(DateValue.slice(5,7)) || parsed.getDate() !== Number(DateValue.slice(8,10))) return showMatchFormMessage('Enter a valid calendar date.');
       if (OurTeamId === OppoTeamId) return showMatchFormMessage('Our Team and Opponent Team must be different.');
       const button = document.getElementById('saveMatchButton'); button.disabled = true;
       try {
-        await dbCall('insertMatch', { Location, LeagueId, Date: DateValue, OurTeamId, OppoTeamId });
+        await dbCall('insertMatch', { Location, LeagueId, Date: DateValue, OurTeamId, OppoTeamId, MatchType });
         await showMatchesList();
       } catch (error) {
         if (/FOREIGN KEY constraint failed/i.test(error.message)) showMatchFormMessage('Select existing values for Location, League, Our Team, and Opponent Team.');
@@ -887,6 +905,99 @@
     });
     document.getElementById('matchForm').addEventListener('submit', event => event.preventDefault());
     document.getElementById('cancelMatchButton').addEventListener('click', showMatchesList);
+
+    let activeScoreMatch = null;
+    let activeScoreMatchType = 'M';
+    let scoreBowlers = [];
+    let scoreGameCount = 0;
+    let savedScoreMap = {};
+    let scoreDraftKey = '';
+    let scoreBusy = false;
+    function scoreDraftData() {
+      const values = {};
+      document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]').forEach(input => {
+        const key = `${input.dataset.game}:${input.dataset.bowler}`;
+        values[key] = input.value;
+      });
+      return { matchId: activeScoreMatch, gameCount: scoreGameCount, values };
+    }
+    function preserveScoreDraft() {
+      if (!activeScoreMatch || !scoreDraftKey) return;
+      try { localStorage.setItem(scoreDraftKey, JSON.stringify(scoreDraftData())); } catch (_) {}
+    }
+    function scoreInputHtml(bowler, game) {
+      const key = `${game}:${bowler.BowlerId}`;
+      const value = Object.prototype.hasOwnProperty.call(savedScoreMap, key) ? savedScoreMap[key] : '';
+      return `<td><input class="score-entry" type="number" min="0" max="300" step="1" inputmode="numeric" data-bowler="${Number(bowler.BowlerId)}" data-game="${game}" aria-label="${escapeHtml(bowler.FullName)} Game ${game}" value="${value === null ? '' : escapeHtml(value)}"></td>`;
+    }
+    function renderScoreGrid() {
+      const headers = Array.from({length: scoreGameCount}, (_, i) => `<th>Game ${i+1}</th>`).join('');
+      const rowsHtml = scoreBowlers.map(bowler => `<tr><td>${escapeHtml(bowler.FullName)}</td>${Array.from({length: scoreGameCount}, (_, i) => scoreInputHtml(bowler, i+1)).join('')}</tr>`).join('');
+      document.getElementById('scoresTableWrap').innerHTML = `<div class="lane-list-wrap"><table class="lane-list score-grid" aria-label="Bowling scores"><thead><tr><th>Bowler</th>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+      document.querySelectorAll('#scoresTableWrap input').forEach(input => input.addEventListener('input', preserveScoreDraft));
+      document.getElementById('nextGameButton').style.display = activeScoreMatchType === 'P' ? '' : 'none';
+      document.getElementById('scoresStatus').textContent = `${scoreBowlers.length} bowlers · ${scoreGameCount} game${scoreGameCount === 1 ? '' : 's'} · ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
+    }
+    function setScoresMessage(message) {
+      const el = document.getElementById('scoresMessage'); el.textContent = message; el.classList.toggle('show', !!message);
+    }
+    async function openScores(matchId) {
+      try {
+        const detail = await dbCall('getMatchForScores', { MatchId: matchId });
+        if (!detail) return showAppMessage('The selected match could not be found.');
+        activeScoreMatch = matchId; activeScoreMatchType = detail.MatchType;
+        const bowlers = await dbCall('listMatchBowlers', { OurTeamId: detail.OurTeamId, OppoTeamId: detail.OppoTeamId });
+        if (bowlers.length !== 8 || new Set(bowlers.map(b => Number(b.BowlerId))).size !== 8) {
+          return showAppMessage(`This match needs eight distinct bowlers assigned through Team Members (four for each team). The current roster contains ${bowlers.length} distinct bowler${bowlers.length === 1 ? '' : 's'}. Please correct the team rosters before entering scores.`);
+        }
+        scoreBowlers = bowlers;
+        const records = await dbCall('listScores', { MatchId: matchId });
+        savedScoreMap = {};
+        records.forEach(row => savedScoreMap[`${Number(row.GameNbr)}:${Number(row.BowlerId)}`] = String(row.Score));
+        scoreGameCount = Math.max(activeScoreMatchType === 'M' ? 3 : 1, ...records.map(row => Number(row.GameNbr)), 1);
+        scoreDraftKey = `bowling-score-draft-${matchId}`;
+        try {
+          const draft = JSON.parse(localStorage.getItem(scoreDraftKey) || 'null');
+          if (draft && draft.matchId === matchId && draft.values && confirm('A recoverable unsaved score draft exists for this match. Restore it?')) {
+            scoreGameCount = Math.max(scoreGameCount, Number(draft.gameCount) || 1);
+            savedScoreMap = { ...savedScoreMap, ...draft.values };
+          }
+        } catch (_) {}
+        if (activeScoreMatchType === 'M') scoreGameCount = 3;
+        document.getElementById('scoresTitle').textContent = `Scores — ${detail.Date} — ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
+        currentEntity = 'Scores'; hideScreens(); scoresScreen.style.display = 'block';
+        setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu(); setScoresMessage('');
+        renderScoreGrid();
+      } catch (error) { showAppMessage('Unable to open score entry: ' + error.message); }
+    }
+    document.getElementById('nextGameButton').addEventListener('click', () => {
+      if (activeScoreMatchType !== 'P') return;
+      const incomplete = [...document.querySelectorAll(`#scoresTableWrap input[data-game="${scoreGameCount}"]`)].some(input => input.value.trim() === '' || !Number.isInteger(Number(input.value)) || Number(input.value) < 0 || Number(input.value) > 300);
+      if (incomplete) return setScoresMessage(`Enter a valid score from 0 through 300 for every bowler in Game ${scoreGameCount} before adding another game.`);
+      document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]').forEach(input => { savedScoreMap[`${input.dataset.game}:${input.dataset.bowler}`] = input.value; });
+      scoreGameCount += 1; setScoresMessage(''); renderScoreGrid(); preserveScoreDraft();
+    });
+    document.getElementById('saveScoresButton').addEventListener('click', async () => {
+      if (scoreBusy) return;
+      const values = [];
+      for (const input of document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]')) {
+        const raw = input.value.trim(), score = Number(raw);
+        if (raw === '' || !Number.isInteger(score) || score < 0 || score > 300) {
+          setScoresMessage(`Every score must be a whole number from 0 through 300. Please check ${input.getAttribute('aria-label')}.`); input.focus(); return;
+        }
+        values.push({ GameNbr: Number(input.dataset.game), BowlerId: Number(input.dataset.bowler), Score: score });
+      }
+      if (activeScoreMatchType === 'M' && scoreGameCount !== 3) return setScoresMessage('A Match must contain exactly three games.');
+      if (values.length !== scoreBowlers.length * scoreGameCount) return setScoresMessage('Every bowler must have a score for every game.');
+      scoreBusy = true; const button = document.getElementById('saveScoresButton'); button.disabled = true;
+      try {
+        await dbCall('saveMatchScores', { MatchId: activeScoreMatch, Scores: values });
+        try { localStorage.removeItem(scoreDraftKey); } catch (_) {}
+        showAppMessage(`Scores saved successfully. ${values.length} score records were saved for this ${activeScoreMatchType === 'P' ? 'practice session' : 'match'}.`, showMatchesList);
+      } catch (error) { setScoresMessage('Scores were not saved. ' + error.message); }
+      finally { scoreBusy = false; button.disabled = false; }
+    });
+    document.getElementById('cancelScoresButton').addEventListener('click', () => { preserveScoreDraft(); showMatchesList(); });
 
     actionsButton.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -937,7 +1048,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v33', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v34', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

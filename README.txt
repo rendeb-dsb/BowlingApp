@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 17 (b1v22)
+Bowling PWA — Build 1 Version 34 (b1v34)
 
 Changes in this version
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
@@ -157,3 +157,13 @@ b1v33 Matches implementation:
 - Add form includes Date (defaults to today), Location, League, Our Team, and Opponent Team dropdowns.
 - Match records are listed newest date first.
 - Actions/Change and Actions/Delete for Matches are not implemented yet; those actions display a clear notice.
+
+
+b1v34 additions:
+- Matches now include MatchType: M (Match, exactly three games) or P (Practice, variable game count). Existing matches are migrated to M.
+- Each match row has a Scores button. Score entry retrieves the eight distinct active bowlers assigned to the two team rosters.
+- Scores table stores MatchId, GameNbr, BowlerId, and Score, enforcing 0 through 300 and unique (MatchId, GameNbr, BowlerId).
+- Match score entry supports three fixed columns for Matches and dynamically added columns for Practice.
+- Scores can be reopened and corrected. Save validates every game has one score for each of eight rostered bowlers and replaces the match's score set in a single SQLite transaction; a failed save rolls back.
+- Unsaved score drafts are stored locally on the device and offered for recovery when the score screen is reopened.
+- Existing database file and records are preserved; MatchType is added to existing Matches with default M.
