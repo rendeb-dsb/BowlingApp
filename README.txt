@@ -1,6 +1,7 @@
-Bowling PWA — Build 1 Version 37 (b1v37)
+Bowling PWA — Build 1 Version 38 (b1v38)
 
 Changes in this version
+- Team Members now waits for SQLite initialization before loading the Show Team dropdown and membership list, preventing an early screen opening from leaving the list empty.
 - Matches list removes the radio-button column, formats dates as mm/dd/yyyy, places Our Team and Opponent Team after Date, and displays Match/Practice without type codes.
 - Add Match captures optional LanesUsed (up to 5 characters), Temp (positive whole number), and Humidity (positive whole number). Existing databases are upgraded in place without deleting match or score data.
 - Scores screen date title uses mm/dd/yyyy.

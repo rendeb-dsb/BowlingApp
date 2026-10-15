@@ -128,7 +128,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v37</div>
+    <div class="version">b1v38</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -167,7 +167,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v37</p>
+      <p><strong>Application version:</strong> b1v38</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -334,7 +334,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v37</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v38</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -741,11 +741,20 @@
     async function showTeamMembersList() {
       currentEntity = 'TeamMembers'; hideScreens(); teamMembersListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setTeamMembersActive(true); setMatchesActive(false); closeMenu();
-      if (dbReady) {
-        try {
-          await loadTeamMembersFilter();
-          await refreshTeamMembers();
-        } catch (error) { document.getElementById('teamMembersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
+      const status = document.getElementById('teamMembersDbStatus');
+      status.textContent = 'Opening BowlingDB…';
+      try {
+        // The user can open this screen while the first database initialization
+        // is still underway. Always await initialization rather than leaving the
+        // default All-only filter and empty list on screen.
+        const info = await dbCall('init');
+        dbReady = true;
+        dbStatus.textContent = `BowlingDB ready · SQLite ${info.version}`;
+        await loadTeamMembersFilter();
+        await refreshTeamMembers();
+      } catch (error) {
+        status.textContent = 'Unable to read BowlingDB: ' + error.message;
+        console.error('Team Members screen failed to load:', error);
       }
     }
     async function loadTeamMembersFilter() {
@@ -1073,7 +1082,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v37', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v38', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
