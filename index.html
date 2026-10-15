@@ -128,7 +128,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v38</div>
+    <div class="version">b1v39</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -167,7 +167,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v38</p>
+      <p><strong>Application version:</strong> b1v39</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -334,7 +334,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v38</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v39</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -765,18 +765,44 @@
       select.value = [...select.options].some(option => option.value === previous) ? previous : '-1';
     }
     async function loadTeamMemberChoices(teamId = '', bowlerId = '') {
-      const [teams, bowlers] = await Promise.all([dbCall('listActiveTeams'), dbCall('listActiveBowlers')]);
+      const teams = await dbCall('listActiveTeams');
+      // Newest teams first so a recently created team is immediately easy to find.
+      teams.sort((a, b) => Number(b.TeamId) - Number(a.TeamId));
       const teamSelect = document.getElementById('teamMemberTeamId');
       const bowlerSelect = document.getElementById('teamMemberBowlerId');
       teamSelect.innerHTML = '<option value="">Select a team</option>' + teams.map(x => `<option value="${Number(x.TeamId)}">${escapeHtml(x.Name)} — ${escapeHtml(x.LeagueName)}</option>`).join('');
-      bowlerSelect.innerHTML = '<option value="">Select a bowler</option>' + bowlers.map(x => `<option value="${Number(x.BowlerId)}">${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}</option>`).join('');
       teamSelect.value = teamId ? String(teamId) : '';
-      bowlerSelect.value = bowlerId ? String(bowlerId) : '';
       teamSelect.disabled = !teams.length || editingTeamMember !== null;
-      bowlerSelect.disabled = !bowlers.length || editingTeamMember !== null;
-      if (!teams.length || !bowlers.length) showTeamMemberFormMessage('An active team and an active bowler are required. Add or activate the necessary records first.');
+      bowlerSelect.disabled = editingTeamMember !== null;
+      await refreshAvailableTeamMemberBowlers(bowlerId);
+      if (!teams.length) showTeamMemberFormMessage('An active team is required. Add or activate a team first.');
       else clearTeamMemberFormMessage();
     }
+    async function refreshAvailableTeamMemberBowlers(selectedBowlerId = '') {
+      const teamSelect = document.getElementById('teamMemberTeamId');
+      const bowlerSelect = document.getElementById('teamMemberBowlerId');
+      const teamId = Number(teamSelect.value || 0);
+      bowlerSelect.innerHTML = '<option value="">Select a bowler</option>';
+      if (!teamId) {
+        bowlerSelect.disabled = editingTeamMember !== null;
+        showTeamMemberFormMessage('Select a team to see its available bowlers.');
+        return;
+      }
+      const bowlers = await dbCall('listAvailableBowlersForTeam', {
+        TeamId: teamId,
+        // When changing a membership, keep its current bowler selectable.
+        includeBowlerId: editingTeamMember ? editingTeamMember.BowlerId : null
+      });
+      bowlerSelect.innerHTML = '<option value="">Select a bowler</option>' + bowlers.map(x => `<option value="${Number(x.BowlerId)}">${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}</option>`).join('');
+      bowlerSelect.value = selectedBowlerId && [...bowlerSelect.options].some(option => option.value === String(selectedBowlerId)) ? String(selectedBowlerId) : '';
+      bowlerSelect.disabled = editingTeamMember !== null || !bowlers.length;
+      if (!bowlers.length) showTeamMemberFormMessage('No unassigned active bowlers are available for this team.');
+      else clearTeamMemberFormMessage();
+    }
+    document.getElementById('teamMemberTeamId').addEventListener('change', async () => {
+      try { await refreshAvailableTeamMemberBowlers(); }
+      catch (error) { showTeamMemberFormMessage('Unable to load available bowlers: ' + error.message); }
+    });
     async function prepareTeamMemberForm(mode) {
       hideScreens(); teamMemberFormScreen.style.display = 'block'; currentEntity = 'TeamMembers';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setTeamMembersActive(true); setMatchesActive(false); closeMenu();
@@ -1082,7 +1108,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v38', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v39', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

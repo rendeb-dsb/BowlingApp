@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 38 (b1v38)
+Bowling PWA — Build 1 Version 39 (b1v39)
 
 Changes in this version
 - Team Members now waits for SQLite initialization before loading the Show Team dropdown and membership list, preventing an early screen opening from leaving the list empty.
@@ -179,3 +179,9 @@ b1v36 roster validation correction:
 - Match sessions still require eight distinct active bowlers (four per team, as configured through Team Members).
 - A Practice session with no active assigned bowlers displays a helpful message rather than opening an empty score grid.
 - Versioned app, worker URL, and service-worker cache updated to b1v36.
+
+
+Changes in b1v39
+- Add Team Member: team choices are sorted by descending TeamId (newest first).
+- Bowler choices are filtered to active bowlers not already assigned to the selected team. The current bowler remains available when changing an existing membership.
+- Changing the selected team refreshes the available bowler list.

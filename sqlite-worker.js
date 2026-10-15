@@ -212,6 +212,14 @@ self.onmessage = async event => {
       self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId=Teams.LeagueId WHERE Teams.Active=1 ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
     } else if (type === 'listActiveBowlers') {
       self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
+    } else if (type === 'listAvailableBowlersForTeam') {
+      const teamId = Number(requestPayload.TeamId);
+      const includeBowlerId = requestPayload.includeBowlerId == null ? null : Number(requestPayload.includeBowlerId);
+      const availableBowlers = rows(
+        'SELECT Bowlers.BowlerId, Bowlers.FirstName, Bowlers.LastName FROM Bowlers WHERE Bowlers.Active=1 AND (NOT EXISTS (SELECT 1 FROM TeamMembers WHERE TeamMembers.TeamId=? AND TeamMembers.BowlerId=Bowlers.BowlerId) OR Bowlers.BowlerId=?) ORDER BY Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId',
+        [teamId, includeBowlerId]
+      );
+      self.postMessage({ id, ok: true, data: availableBowlers });
     } else if (type === 'listMatches') {
       self.postMessage({ id, ok: true, data: rows(`SELECT Matches.MatchId, Matches.Date, Matches.Location, Matches.LeagueId, Matches.MatchType,
         Matches.LanesUsed, Matches.Temp, Matches.Humidity, Matches.OurTeamId, Matches.OppoTeamId, Lanes.Name AS LocationName, Leagues.LeagueName,
