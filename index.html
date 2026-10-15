@@ -124,11 +124,16 @@
     .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 145px; min-width: 145px; max-width: 145px; }
     .score-entry { width: 74px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 5px; font-size: 16px; }
     #scoresTableWrap { overflow-x: auto; position: relative; }
+  
+    .match-select-cell { width:42px; min-width:42px; max-width:42px; text-align:center; }
+    .match-select-cell input[type="radio"] { width:18px; height:18px; margin:0; vertical-align:middle; }
+    .lane-list tbody tr.selected-row { outline:2px solid #2e6f95; outline-offset:-2px; }
+
   </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v39</div>
+    <div class="version">b1v40</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -167,7 +172,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v39</p>
+      <p><strong>Application version:</strong> b1v40</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -302,7 +307,7 @@
       <div id="matchesListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="matchFormScreen" aria-label="Match Management">
-      <div class="screen-titlebar"><h2>Add Match</h2><div class="title-actions"><button class="action-button primary" id="saveMatchButton" type="button">Save</button><button class="action-button" id="cancelMatchButton" type="button">Cancel</button></div></div>
+      <div class="screen-titlebar"><h2 id="matchFormTitle">Add Match</h2><div class="title-actions"><button class="action-button primary" id="saveMatchButton" type="button">Save</button><button class="action-button" id="cancelMatchButton" type="button">Cancel</button></div></div>
       <div class="form-message" id="matchFormMessage" role="alert"></div>
       <form class="lane-form" id="matchForm" autocomplete="off">
         <table class="lane-fields" aria-label="Match details"><tbody>
@@ -334,7 +339,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v39</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v40</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -874,19 +879,37 @@
         catch (error) { document.getElementById('matchesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
       }
     }
+    let selectedMatchId = null;
+    let editingMatchId = null;
     async function refreshMatches() {
       const matches = await dbCall('listMatches');
       const content = document.getElementById('matchesListContent');
       if (!matches.length) {
+        selectedMatchId = null;
         content.innerHTML = '<div class="lanes-empty">No records to display.</div>';
       } else {
+        if (selectedMatchId != null && !matches.some(match => Number(match.MatchId) === Number(selectedMatchId))) selectedMatchId = null;
         const rowsHtml = matches.map(match => {
           const rawDate = String(match.Date || '').slice(0, 10);
           const dateParts = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
           const displayDate = dateParts ? `${dateParts[2]}/${dateParts[3]}/${dateParts[1]}` : rawDate;
-          return `<tr><td><button class="action-button scores-row-button" type="button" data-scores-match="${Number(match.MatchId)}">Scores</button></td><td>${escapeHtml(displayDate)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.OppoTeamName)}</td><td>${match.MatchType === 'P' ? 'Practice' : 'Match'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td></tr>`;
+          const id = Number(match.MatchId);
+          const checked = Number(selectedMatchId) === id ? ' checked' : '';
+          return `<tr data-match-row="${id}"><td class="match-select-cell"><input type="radio" name="selectedMatch" aria-label="Select match ${id}" data-select-match="${id}"${checked}></td><td><button class="action-button scores-row-button" type="button" data-scores-match="${id}">Scores</button></td><td>${escapeHtml(displayDate)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.OppoTeamName)}</td><td>${match.MatchType === 'P' ? 'Practice' : 'Match'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td></tr>`;
         }).join('');
-        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th>Action</th><th>Date</th><th>Our Team</th><th>Opponent Team</th><th>Type</th><th>Location</th><th>League</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th class="match-select-cell" aria-label="Select"></th><th>Action</th><th>Date</th><th>Our Team</th><th>Opponent Team</th><th>Type</th><th>Location</th><th>League</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        content.querySelectorAll('[data-select-match]').forEach(radio => radio.addEventListener('change', () => {
+          selectedMatchId = Number(radio.dataset.selectMatch);
+          content.querySelectorAll('tr[data-match-row]').forEach(row => row.classList.toggle('selected-row', Number(row.dataset.matchRow) === selectedMatchId));
+        }));
+        content.querySelectorAll('[data-match-row]').forEach(row => {
+          row.classList.toggle('selected-row', Number(row.dataset.matchRow) === Number(selectedMatchId));
+          row.addEventListener('click', event => {
+            if (event.target.closest('button')) return;
+            const radio = row.querySelector('[data-select-match]');
+            if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); }
+          });
+        });
         content.querySelectorAll('[data-scores-match]').forEach(button => button.addEventListener('click', () => openScores(Number(button.dataset.scoresMatch))));
       }
       document.getElementById('matchesDbStatus').textContent = `BowlingDB ready · ${matches.length} match${matches.length === 1 ? '' : 'es'}`;
@@ -899,12 +922,15 @@
       const el = document.getElementById('matchFormMessage');
       el.textContent = ''; el.classList.remove('show');
     }
-    async function showAddMatch() {
+    async function showMatchForm(matchToEdit = null) {
       currentEntity = 'Matches'; hideScreens(); matchFormScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
+      editingMatchId = matchToEdit ? Number(matchToEdit.MatchId) : null;
       document.getElementById('matchForm').reset(); clearMatchFormMessage();
+      document.getElementById('matchFormTitle').textContent = editingMatchId == null ? 'Add Match' : 'Change Match';
+      document.getElementById('saveMatchButton').textContent = 'Save';
       const now = new Date();
-      document.getElementById('matchDate').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      document.getElementById('matchDate').value = matchToEdit?.Date || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
       try {
         const [locations, leagues, teams] = await Promise.all([
           dbCall('listLocations'), dbCall('listTeamLeagues'), dbCall('listTeams')
@@ -918,7 +944,16 @@
         populate('matchLeague', 'Select a league', leagues, 'LeagueId', row => row.LeagueName);
         populate('matchOurTeam', 'Select our team', teams, 'TeamId', row => `${row.Name} — ${row.LeagueName} (${row.TeamType === 'P' ? 'Practice' : 'Match'})`);
         populate('matchOppoTeam', 'Select opponent team', teams, 'TeamId', row => `${row.Name} — ${row.LeagueName} (${row.TeamType === 'P' ? 'Practice' : 'Match'})`);
-        if (!locations.length || !leagues.length || !teams.length) {
+        if (matchToEdit) {
+          document.getElementById('matchLanesUsed').value = matchToEdit.LanesUsed ?? '';
+          document.getElementById('matchTemp').value = matchToEdit.Temp ?? '';
+          document.getElementById('matchHumidity').value = matchToEdit.Humidity ?? '';
+          document.getElementById('matchType').value = matchToEdit.MatchType || 'M';
+          document.getElementById('matchLocation').value = String(matchToEdit.Location);
+          document.getElementById('matchLeague').value = String(matchToEdit.LeagueId);
+          document.getElementById('matchOurTeam').value = String(matchToEdit.OurTeamId);
+          document.getElementById('matchOppoTeam').value = String(matchToEdit.OppoTeamId);
+        } else if (!locations.length || !leagues.length || !teams.length) {
           const missing = [];
           if (!locations.length) missing.push('a bowling center (Lanes)');
           if (!leagues.length) missing.push('a league (Leagues)');
@@ -926,6 +961,15 @@
           showMatchFormMessage('Before saving a match, add ' + missing.join(', ') + '.');
         }
       } catch (error) { showMatchFormMessage('Unable to load match choices: ' + error.message); }
+    }
+    async function showAddMatch() { await showMatchForm(null); }
+    async function showChangeMatch() {
+      if (selectedMatchId == null) return showAppMessage('Select a match in the Matches list before choosing Change.');
+      try {
+        const match = await dbCall('getMatchForChange', { MatchId: selectedMatchId });
+        if (!match) { selectedMatchId = null; await showMatchesList(); return showAppMessage('The selected match could not be found.'); }
+        await showMatchForm(match);
+      } catch (error) { showAppMessage('Unable to open the selected match: ' + error.message); }
     }
     document.getElementById('saveMatchButton').addEventListener('click', async event => {
       event.preventDefault(); clearMatchFormMessage();
@@ -941,6 +985,7 @@
       const OurTeamId = Number(document.getElementById('matchOurTeam').value);
       const OppoTeamId = Number(document.getElementById('matchOppoTeam').value);
       if (!DateValue || !Location || !LeagueId || !OurTeamId || !OppoTeamId) return showMatchFormMessage('Please complete the Date, Match Type, Location, League, Our Team, and Opponent Team fields.');
+      if (!['M','P'].includes(MatchType)) return showMatchFormMessage('Select a valid Match Type.');
       if (LanesUsedValue.length > 5) return showMatchFormMessage('Lanes must contain no more than 5 characters.');
       if (TempText !== '' && (!/^\d+$/.test(TempText) || !Number.isSafeInteger(Temp) || Temp <= 0)) return showMatchFormMessage('Temp. must be a positive whole number, or left blank.');
       if (HumidityText !== '' && (!/^\d+$/.test(HumidityText) || !Number.isSafeInteger(Humidity) || Humidity <= 0)) return showMatchFormMessage('Hum. must be a positive whole number, or left blank.');
@@ -948,17 +993,20 @@
       if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== Number(DateValue.slice(0,4)) || parsed.getMonth()+1 !== Number(DateValue.slice(5,7)) || parsed.getDate() !== Number(DateValue.slice(8,10))) return showMatchFormMessage('Enter a valid calendar date.');
       if (OurTeamId === OppoTeamId) return showMatchFormMessage('Our Team and Opponent Team must be different.');
       const button = document.getElementById('saveMatchButton'); button.disabled = true;
+      const payload = { MatchId: editingMatchId, Location, LeagueId, Date: DateValue, OurTeamId, OppoTeamId, MatchType, LanesUsed: LanesUsedValue || null, Temp, Humidity };
       try {
-        await dbCall('insertMatch', { Location, LeagueId, Date: DateValue, OurTeamId, OppoTeamId, MatchType, LanesUsed: LanesUsedValue || null, Temp, Humidity });
+        if (editingMatchId == null) await dbCall('insertMatch', payload);
+        else await dbCall('updateMatch', payload);
+        editingMatchId = null;
         await showMatchesList();
       } catch (error) {
         if (/FOREIGN KEY constraint failed/i.test(error.message)) showMatchFormMessage('Select existing values for Location, League, Our Team, and Opponent Team.');
-        else if (/CK_Matches_DifferentTeams|CHECK constraint failed/i.test(error.message)) showMatchFormMessage('Our Team and Opponent Team must be different, and the date must be valid.');
+        else if (/CK_Matches_DifferentTeams|CHECK constraint failed/i.test(error.message)) showMatchFormMessage('Our Team and Opponent Team must be different, and the date, lanes, temperature, and humidity must be valid.');
         else showMatchFormMessage('The match could not be saved: ' + error.message);
       } finally { button.disabled = false; }
     });
     document.getElementById('matchForm').addEventListener('submit', event => event.preventDefault());
-    document.getElementById('cancelMatchButton').addEventListener('click', showMatchesList);
+    document.getElementById('cancelMatchButton').addEventListener('click', () => { editingMatchId = null; showMatchesList(); });
 
     let activeScoreMatch = null;
     let activeScoreMatchType = 'M';
@@ -1086,7 +1134,7 @@
         if (action === 'Add') {
           if (currentEntity === 'Bowlers') showAddBowler(); else if (currentEntity === 'Leagues') showAddLeague(); else if (currentEntity === 'Teams') showAddTeam(); else if (currentEntity === 'TeamMembers') showAddTeamMember(); else if (currentEntity === 'Matches') showAddMatch(); else showAddLane();
         } else if (action === 'Change') {
-          if (currentEntity === 'Bowlers') showChangeBowler(); else if (currentEntity === 'Leagues') showChangeLeague(); else if (currentEntity === 'Teams') showChangeTeam(); else if (currentEntity === 'TeamMembers') showChangeTeamMember(); else if (currentEntity === 'Matches') showAppMessage('Changing matches will be implemented in a later build.'); else showChangeLane();
+          if (currentEntity === 'Bowlers') showChangeBowler(); else if (currentEntity === 'Leagues') showChangeLeague(); else if (currentEntity === 'Teams') showChangeTeam(); else if (currentEntity === 'TeamMembers') showChangeTeamMember(); else if (currentEntity === 'Matches') showChangeMatch(); else showChangeLane();
         } else if (action === 'Delete') {
           if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else if (currentEntity === 'Teams') deleteSelectedTeam(); else if (currentEntity === 'TeamMembers') deleteSelectedTeamMember(); else if (currentEntity === 'Matches') showAppMessage('Deleting matches will be implemented in a later build.'); else deleteSelectedLane();
         } else if (action === 'Quit') {
@@ -1108,7 +1156,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v39', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v40', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 39 (b1v39)
+Bowling PWA — Build 1 Version 39 (b1v40)
 
 Changes in this version
 - Team Members now waits for SQLite initialization before loading the Show Team dropdown and membership list, preventing an early screen opening from leaving the list empty.
@@ -181,7 +181,15 @@ b1v36 roster validation correction:
 - Versioned app, worker URL, and service-worker cache updated to b1v36.
 
 
-Changes in b1v39
+Changes in b1v40
 - Add Team Member: team choices are sorted by descending TeamId (newest first).
 - Bowler choices are filtered to active bowlers not already assigned to the selected team. The current bowler remains available when changing an existing membership.
 - Changing the selected team refreshes the available bowler list.
+
+
+Changes in b1v40
+- Matches list includes a headerless radio-button column for selecting a match. Clicking a row also selects it.
+- Actions > Change opens the selected match in a form titled Change Match.
+- Existing match values, including lanes, temperature, humidity, type, location, league, and teams, are loaded for editing.
+- Save validates required values, date, distinct teams, lane length, and positive integer temperature/humidity before updating the existing row.
+- SQLite worker supports reading and updating match records without replacing their MatchId or deleting related scores.

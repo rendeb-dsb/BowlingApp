@@ -234,6 +234,12 @@ self.onmessage = async event => {
       db.exec({ sql: 'INSERT INTO Matches (Location, LeagueId, Date, OurTeamId, OppoTeamId, MatchType, LanesUsed, Temp, Humidity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.MatchType, requestPayload.LanesUsed || null, requestPayload.Temp ?? null, requestPayload.Humidity ?? null] });
       self.postMessage({ id, ok: true, data: { MatchId: db.selectValue('SELECT last_insert_rowid()') } });
+    } else if (type === 'getMatchForChange') {
+      self.postMessage({ id, ok: true, data: rows('SELECT MatchId, Location, LeagueId, Date, OurTeamId, OppoTeamId, MatchType, LanesUsed, Temp, Humidity FROM Matches WHERE MatchId=?', [requestPayload.MatchId])[0] || null });
+    } else if (type === 'updateMatch') {
+      db.exec({ sql: 'UPDATE Matches SET Location=?, LeagueId=?, Date=?, OurTeamId=?, OppoTeamId=?, MatchType=?, LanesUsed=?, Temp=?, Humidity=? WHERE MatchId=?',
+        bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.MatchType, requestPayload.LanesUsed || null, requestPayload.Temp ?? null, requestPayload.Humidity ?? null, requestPayload.MatchId] });
+      self.postMessage({ id, ok: true, data: { MatchId: requestPayload.MatchId, changes: db.changes() } });
     } else if (type === 'getMatchForScores') {
       self.postMessage({ id, ok: true, data: rows('SELECT MatchId, Date, OurTeamId, OppoTeamId, MatchType FROM Matches WHERE MatchId=?', [requestPayload.MatchId])[0] || null });
     } else if (type === 'listMatchBowlers') {
