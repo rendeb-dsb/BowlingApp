@@ -68,6 +68,9 @@ async function initializeOnce() {
     OurTeamId INTEGER NOT NULL,
     OppoTeamId INTEGER NOT NULL,
     MatchType TEXT NOT NULL DEFAULT 'M' CHECK(MatchType IN ('P', 'M')),
+    LanesUsed TEXT CHECK(LanesUsed IS NULL OR length(LanesUsed) <= 5),
+    Temp INTEGER CHECK(Temp IS NULL OR (typeof(Temp)='integer' AND Temp > 0)),
+    Humidity INTEGER CHECK(Humidity IS NULL OR (typeof(Humidity)='integer' AND Humidity > 0)),
     CONSTRAINT CK_Matches_DifferentTeams CHECK (OurTeamId <> OppoTeamId),
     FOREIGN KEY (Location) REFERENCES Lanes(LaneId) ON DELETE RESTRICT,
     FOREIGN KEY (LeagueId) REFERENCES Leagues(LeagueId) ON DELETE RESTRICT,
@@ -91,6 +94,9 @@ async function initializeOnce() {
   }
   const matchColumns = rows('PRAGMA table_info(Matches)').map(column => column.name);
   if (!matchColumns.includes('MatchType')) db.exec("ALTER TABLE Matches ADD COLUMN MatchType TEXT NOT NULL DEFAULT 'M' CHECK(MatchType IN ('P', 'M'))");
+  if (!matchColumns.includes('LanesUsed')) db.exec("ALTER TABLE Matches ADD COLUMN LanesUsed TEXT CHECK(LanesUsed IS NULL OR length(LanesUsed) <= 5)");
+  if (!matchColumns.includes('Temp')) db.exec("ALTER TABLE Matches ADD COLUMN Temp INTEGER CHECK(Temp IS NULL OR (typeof(Temp)='integer' AND Temp > 0))");
+  if (!matchColumns.includes('Humidity')) db.exec("ALTER TABLE Matches ADD COLUMN Humidity INTEGER CHECK(Humidity IS NULL OR (typeof(Humidity)='integer' AND Humidity > 0))");
   const teamColumns = rows('PRAGMA table_info(Teams)').map(column => column.name);
   if (!teamColumns.includes('TeamType')) {
     db.exec("ALTER TABLE Teams ADD COLUMN TeamType TEXT NOT NULL DEFAULT 'M' CHECK(TeamType IN ('P', 'M'))");
@@ -208,7 +214,7 @@ self.onmessage = async event => {
       self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
     } else if (type === 'listMatches') {
       self.postMessage({ id, ok: true, data: rows(`SELECT Matches.MatchId, Matches.Date, Matches.Location, Matches.LeagueId, Matches.MatchType,
-        Matches.OurTeamId, Matches.OppoTeamId, Lanes.Name AS LocationName, Leagues.LeagueName,
+        Matches.LanesUsed, Matches.Temp, Matches.Humidity, Matches.OurTeamId, Matches.OppoTeamId, Lanes.Name AS LocationName, Leagues.LeagueName,
         OurTeam.Name AS OurTeamName, OppoTeam.Name AS OppoTeamName
         FROM Matches
         JOIN Lanes ON Lanes.LaneId=Matches.Location
@@ -217,8 +223,8 @@ self.onmessage = async event => {
         JOIN Teams AS OppoTeam ON OppoTeam.TeamId=Matches.OppoTeamId
         ORDER BY Matches.Date DESC, Matches.MatchId DESC`) });
     } else if (type === 'insertMatch') {
-      db.exec({ sql: 'INSERT INTO Matches (Location, LeagueId, Date, OurTeamId, OppoTeamId, MatchType) VALUES (?, ?, ?, ?, ?, ?)',
-        bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.MatchType] });
+      db.exec({ sql: 'INSERT INTO Matches (Location, LeagueId, Date, OurTeamId, OppoTeamId, MatchType, LanesUsed, Temp, Humidity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.MatchType, requestPayload.LanesUsed || null, requestPayload.Temp ?? null, requestPayload.Humidity ?? null] });
       self.postMessage({ id, ok: true, data: { MatchId: db.selectValue('SELECT last_insert_rowid()') } });
     } else if (type === 'getMatchForScores') {
       self.postMessage({ id, ok: true, data: rows('SELECT MatchId, Date, OurTeamId, OppoTeamId, MatchType FROM Matches WHERE MatchId=?', [requestPayload.MatchId])[0] || null });

@@ -128,7 +128,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v36</div>
+    <div class="version">b1v37</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -167,7 +167,7 @@
       <h2 id="settingsTitle">Settings</h2>
       <p>This is the initial Settings display for the Bowling app.</p>
       <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v36</p>
+      <p><strong>Application version:</strong> b1v37</p>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -307,6 +307,9 @@
       <form class="lane-form" id="matchForm" autocomplete="off">
         <table class="lane-fields" aria-label="Match details"><tbody>
           <tr><td class="label-cell"><label for="matchDate">Date:</label></td><td class="control-cell"><input id="matchDate" name="Date" type="date" required></td></tr>
+          <tr><td class="label-cell"><label for="matchLanesUsed">Lanes:</label></td><td class="control-cell"><input id="matchLanesUsed" name="LanesUsed" type="text" maxlength="5" style="width:100px;max-width:100%;" aria-label="Lanes used"></td></tr>
+          <tr><td class="label-cell"><label for="matchTemp">Temp.:</label></td><td class="control-cell"><input id="matchTemp" name="Temp" type="text" inputmode="numeric" style="width:100px;max-width:100%;" aria-label="Temperature"></td></tr>
+          <tr><td class="label-cell"><label for="matchHumidity">Hum.:</label></td><td class="control-cell"><input id="matchHumidity" name="Humidity" type="text" inputmode="numeric" style="width:100px;max-width:100%;" aria-label="Humidity"></td></tr>
           <tr><td class="label-cell"><label for="matchType">Match Type:</label></td><td class="control-cell"><select id="matchType" name="MatchType" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="M">Match (3 games)</option><option value="P">Practice (variable games)</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchLocation">Location:</label></td><td class="control-cell"><select id="matchLocation" name="Location" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a bowling center</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchLeague">League:</label></td><td class="control-cell"><select id="matchLeague" name="LeagueId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a league</option></select></td></tr>
@@ -331,7 +334,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v36</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v37</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -842,8 +845,13 @@
       if (!matches.length) {
         content.innerHTML = '<div class="lanes-empty">No records to display.</div>';
       } else {
-        const rowsHtml = matches.map(match => `<tr><td><button class="action-button scores-row-button" type="button" data-scores-match="${Number(match.MatchId)}">Scores</button></td><td class="lane-radio"><input type="radio" name="selectedMatch" value="${Number(match.MatchId)}" aria-label="Select match ${Number(match.MatchId)}"></td><td>${escapeHtml(match.Date)}</td><td>${match.MatchType === 'P' ? 'Practice (P)' : 'Match (M)'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.OppoTeamName)}</td></tr>`).join('');
-        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th>Action</th><th aria-label="Select"></th><th>Date</th><th>Type</th><th>Location</th><th>League</th><th>Our Team</th><th>Opponent Team</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        const rowsHtml = matches.map(match => {
+          const rawDate = String(match.Date || '').slice(0, 10);
+          const dateParts = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          const displayDate = dateParts ? `${dateParts[2]}/${dateParts[3]}/${dateParts[1]}` : rawDate;
+          return `<tr><td><button class="action-button scores-row-button" type="button" data-scores-match="${Number(match.MatchId)}">Scores</button></td><td>${escapeHtml(displayDate)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.OppoTeamName)}</td><td>${match.MatchType === 'P' ? 'Practice' : 'Match'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td></tr>`;
+        }).join('');
+        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th>Action</th><th>Date</th><th>Our Team</th><th>Opponent Team</th><th>Type</th><th>Location</th><th>League</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
         content.querySelectorAll('[data-scores-match]').forEach(button => button.addEventListener('click', () => openScores(Number(button.dataset.scoresMatch))));
       }
       document.getElementById('matchesDbStatus').textContent = `BowlingDB ready · ${matches.length} match${matches.length === 1 ? '' : 'es'}`;
@@ -888,17 +896,25 @@
       event.preventDefault(); clearMatchFormMessage();
       const DateValue = document.getElementById('matchDate').value;
       const MatchType = document.getElementById('matchType').value;
+      const LanesUsedValue = document.getElementById('matchLanesUsed').value.trim();
+      const TempText = document.getElementById('matchTemp').value.trim();
+      const HumidityText = document.getElementById('matchHumidity').value.trim();
+      const Temp = TempText === '' ? null : Number(TempText);
+      const Humidity = HumidityText === '' ? null : Number(HumidityText);
       const Location = Number(document.getElementById('matchLocation').value);
       const LeagueId = Number(document.getElementById('matchLeague').value);
       const OurTeamId = Number(document.getElementById('matchOurTeam').value);
       const OppoTeamId = Number(document.getElementById('matchOppoTeam').value);
-      if (!DateValue || !Location || !LeagueId || !OurTeamId || !OppoTeamId) return showMatchFormMessage('Please complete all six fields.');
+      if (!DateValue || !Location || !LeagueId || !OurTeamId || !OppoTeamId) return showMatchFormMessage('Please complete the Date, Match Type, Location, League, Our Team, and Opponent Team fields.');
+      if (LanesUsedValue.length > 5) return showMatchFormMessage('Lanes must contain no more than 5 characters.');
+      if (TempText !== '' && (!/^\d+$/.test(TempText) || !Number.isSafeInteger(Temp) || Temp <= 0)) return showMatchFormMessage('Temp. must be a positive whole number, or left blank.');
+      if (HumidityText !== '' && (!/^\d+$/.test(HumidityText) || !Number.isSafeInteger(Humidity) || Humidity <= 0)) return showMatchFormMessage('Hum. must be a positive whole number, or left blank.');
       const parsed = new Date(`${DateValue}T00:00:00`);
       if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== Number(DateValue.slice(0,4)) || parsed.getMonth()+1 !== Number(DateValue.slice(5,7)) || parsed.getDate() !== Number(DateValue.slice(8,10))) return showMatchFormMessage('Enter a valid calendar date.');
       if (OurTeamId === OppoTeamId) return showMatchFormMessage('Our Team and Opponent Team must be different.');
       const button = document.getElementById('saveMatchButton'); button.disabled = true;
       try {
-        await dbCall('insertMatch', { Location, LeagueId, Date: DateValue, OurTeamId, OppoTeamId, MatchType });
+        await dbCall('insertMatch', { Location, LeagueId, Date: DateValue, OurTeamId, OppoTeamId, MatchType, LanesUsed: LanesUsedValue || null, Temp, Humidity });
         await showMatchesList();
       } catch (error) {
         if (/FOREIGN KEY constraint failed/i.test(error.message)) showMatchFormMessage('Select existing values for Location, League, Our Team, and Opponent Team.');
@@ -971,7 +987,8 @@
           }
         } catch (_) {}
         if (activeScoreMatchType === 'M') scoreGameCount = 3;
-        const titleDate = String(detail.Date).slice(0, 10).split('-').reverse().join('/');
+        const scoreDate = String(detail.Date).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const titleDate = scoreDate ? `${scoreDate[2]}/${scoreDate[3]}/${scoreDate[1]}` : String(detail.Date).slice(0, 10);
         document.getElementById('scoresTitle').textContent = `Scores - ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'} - ${titleDate}`;
         currentEntity = 'Scores'; hideScreens(); scoresScreen.style.display = 'block';
         setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu(); setScoresMessage('');
@@ -1056,7 +1073,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v36', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v37', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

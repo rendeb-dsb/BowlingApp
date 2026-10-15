@@ -1,6 +1,9 @@
-Bowling PWA — Build 1 Version 35 (b1v36)
-Don
+Bowling PWA — Build 1 Version 37 (b1v37)
+
 Changes in this version
+- Matches list removes the radio-button column, formats dates as mm/dd/yyyy, places Our Team and Opponent Team after Date, and displays Match/Practice without type codes.
+- Add Match captures optional LanesUsed (up to 5 characters), Temp (positive whole number), and Humidity (positive whole number). Existing databases are upgraded in place without deleting match or score data.
+- Scores screen date title uses mm/dd/yyyy.
 - All popup messages use a custom dialog titled "The Bowling App says:" and an OK button.
 - Actions > Change requires a selected lane record.
 - If no lane is selected, the app displays "Select a record to change." with an OK button.
@@ -11,8 +14,9 @@ Changes in this version
 Database
 - Database file: BowlingDB.sqlite3 in the browser's Origin Private File System (OPFS).
 - SQLite engine: official SQLite WASM package, loaded by sqlite-worker.js from jsDelivr.
-- Table: Lanes only.
+- Tables: Lanes, Bowlers, Leagues, Teams, TeamMembers, Matches, and Scores.
 - LaneId: INTEGER PRIMARY KEY AUTOINCREMENT.
+Matches additions: LanesUsed TEXT (optional, maximum 5 characters); Temp INTEGER (optional positive whole number); Humidity INTEGER (optional positive whole number).
 - Name: required text.
 - Address1, Address2, City: optional text.
 - State: required, exactly two uppercase letters, default FL.
