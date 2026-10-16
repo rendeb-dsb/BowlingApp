@@ -140,7 +140,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v51</div>
+    <div class="version">b1v52</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -177,7 +177,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v51</strong></p>
+      <p>Application version: <strong>b1v52</strong></p>
       <p><strong>Score entry Next-button order</strong></p>
       <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
         <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
@@ -353,7 +353,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v51</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v52</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -645,7 +645,7 @@
     async function refreshLeagues() {
       const leagues = await dbCall('listLeagues');
       const content = document.getElementById('leaguesListContent');
-      if (!leagues.length) { content.innerHTML = allMatches.length && filterType !== 'A' ? '<div class="lanes-empty">No matches of this type to display.</div>' : '<div class="lanes-empty">No records to display.</div>'; document.getElementById('leaguesDbStatus').textContent = 'BowlingDB ready'; return; }
+      if (!leagues.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('leaguesDbStatus').textContent = 'BowlingDB ready'; return; }
       const body = leagues.map(league => `<tr><td class="lane-radio"><input type="radio" name="selectedLeague" value="${Number(league.LeagueId)}" aria-label="Select league ${Number(league.LeagueId)}"></td><td>${escapeHtml(league.LeagueName)}</td><td>${escapeHtml(league.StartDate || '')}</td><td>${escapeHtml(league.EndDate || '')}</td><td>${Number(league.Active) === 1 ? 'Yes' : 'No'}</td><td>${escapeHtml(league.LocationName)}</td></tr>`).join('');
       content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list" aria-label="Leagues"><thead><tr><th aria-label="Select"></th><th>League Name</th><th>Start Date</th><th>End Date</th><th>Active</th><th>Location</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Location shows the bowling center associated with each league.</p>`;
       document.getElementById('leaguesDbStatus').textContent = 'BowlingDB ready';
@@ -724,7 +724,7 @@
     }
     async function refreshTeams() {
       const teams = await dbCall('listTeams'); const content = document.getElementById('teamsListContent');
-      if (!teams.length) { content.innerHTML = allMatches.length && filterType !== 'A' ? '<div class="lanes-empty">No matches of this type to display.</div>' : '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamsDbStatus').textContent = 'BowlingDB ready'; return; }
+      if (!teams.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamsDbStatus').textContent = 'BowlingDB ready'; return; }
       const body = teams.map(team => `<tr><td class="lane-radio"><input type="radio" name="selectedTeam" value="${Number(team.TeamId)}" aria-label="Select team ${Number(team.TeamId)}"></td><td>${escapeHtml(team.Name)}</td><td aria-label="Active: ${Number(team.Active) === 1 ? 'Yes' : 'No'}">${Number(team.Active) === 1 ? 'Yes' : 'No'}</td><td>${escapeHtml(team.LeagueName)}</td><td>${team.TeamType === 'P' ? 'Practice' : 'Match'}</td></tr>`).join('');
       content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list teams-list" aria-label="Teams"><thead><tr><th aria-label="Select"></th><th>Name</th><th>Active</th><th>League</th><th>Team Type</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Each team is associated with one league. Team Type is P (Practice) or M (Match). Active is shown as Yes or No.</p>`;
       document.getElementById('teamsDbStatus').textContent = 'BowlingDB ready';
@@ -866,7 +866,7 @@
       const filterValue = filterControl.value === '' ? -1 : Number(filterControl.value);
       const memberships = await dbCall('listTeamMembers', { TeamId: filterValue });
       const content = document.getElementById('teamMembersListContent');
-      if (!memberships.length) { content.innerHTML = allMatches.length && filterType !== 'A' ? '<div class="lanes-empty">No matches of this type to display.</div>' : '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamMembersDbStatus').textContent = 'BowlingDB ready'; return; }
+      if (!memberships.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; document.getElementById('teamMembersDbStatus').textContent = 'BowlingDB ready'; return; }
       const body = memberships.map(x => `<tr><td class="lane-radio"><input type="radio" name="selectedTeamMember" value="${Number(x.TeamId)}:${Number(x.BowlerId)}" aria-label="Select ${escapeHtml(x.TeamName)} membership for ${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}"></td><td>${escapeHtml(x.TeamName)}</td><td>${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}</td></tr>`).join('');
       content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list team-members-list" aria-label="Team Members"><thead><tr><th aria-label="Select"></th><th>Team</th><th>Bowler</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Each bowler can appear only once on a particular team.</p>`;
       document.getElementById('teamMembersDbStatus').textContent = 'BowlingDB ready';
@@ -1310,7 +1310,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v51', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v52', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -1386,7 +1386,7 @@
     }
     async function refreshBowlers() {
       const bowlers = await dbCall('listBowlers'); const content = document.getElementById('bowlersListContent');
-      if (!bowlers.length) { content.innerHTML = allMatches.length && filterType !== 'A' ? '<div class="lanes-empty">No matches of this type to display.</div>' : '<div class="lanes-empty">No records to display.</div>'; return; }
+      if (!bowlers.length) { content.innerHTML = '<div class="lanes-empty">No records to display.</div>'; return; }
       const body = bowlers.map(bowler => `<tr><td class="lane-radio"><input type="radio" name="selectedBowler" value="${Number(bowler.BowlerId)}" aria-label="Select bowler ${Number(bowler.BowlerId)}"></td><td>${Number(bowler.Active) === 1 ? 'Yes' : 'No'}</td><td>${escapeHtml(bowler.FirstName)}</td><td>${escapeHtml(bowler.LastName)}</td></tr>`).join('');
       content.innerHTML = `<div class="lanes-table-wrap"><table class="lane-list bowlers-list" aria-label="Bowlers"><thead><tr><th aria-label="Select"></th><th>Active</th><th>First Name</th><th>Last Name</th></tr></thead><tbody>${body}</tbody></table></div><p class="list-note">Select a bowler using its radio button. Active is shown as Yes or No.</p>`;
     }
