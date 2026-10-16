@@ -114,23 +114,26 @@ async function initialize() {
   if (db) return { version: sqliteVersion };
   if (initializationPromise) return initializationPromise;
   initializationPromise = (async () => {
-    try {
-      return await initializeOnce();
-    } catch (error) {
-      // A failed SAH-pool/database open can leave handles allocated even if
-      // the Database constructor did not finish. Close the pool before retrying.
-      try { if (db && typeof db.close === 'function') db.close(); } catch (_) {}
-      db = null;
+    let lastError;
+    // OPFS may briefly report an access-handle conflict while another page or
+    // worker is finishing startup/shutdown. Clean up and retry transient cases.
+    for (let attempt = 0; attempt < 4; attempt++) {
       try {
-        if (poolUtil && typeof poolUtil.close === 'function') await poolUtil.close();
-      } catch (_) {}
-      poolUtil = null;
-      sqliteVersion = null;
-      throw error;
-    } finally {
-      initializationPromise = null;
+        return await initializeOnce();
+      } catch (error) {
+        lastError = error;
+        try { if (db && typeof db.close === 'function') db.close(); } catch (_) {}
+        db = null;
+        try { if (poolUtil && typeof poolUtil.close === 'function') await poolUtil.close(); } catch (_) {}
+        poolUtil = null;
+        sqliteVersion = null;
+        const transientHandleConflict = /Access Handles cannot be created|another open Access Handle|Writable stream associated with the same file|createSyncAccessHandle/i.test(String(error && error.message));
+        if (!transientHandleConflict || attempt === 3) throw error;
+        await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
+      }
     }
-  })();
+    throw lastError;
+  })().finally(() => { initializationPromise = null; });
   return initializationPromise;
 }
 self.onmessage = async event => {

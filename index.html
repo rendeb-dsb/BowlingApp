@@ -136,7 +136,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v44</div>
+    <div class="version">b1v45</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -173,7 +173,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v44</strong></p>
+      <p>Application version: <strong>b1v45</strong></p>
       <p><strong>Score entry Next-button order</strong></p>
       <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
         <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
@@ -348,7 +348,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v44</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v45</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -482,10 +482,8 @@
       setLanesActive(true);
       setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false);
       setMatchesActive(false); closeMenu();
-      if (dbReady) {
-        try { await refreshLanes(); }
-        catch (error) { dbStatus.textContent = 'Unable to read BowlingDB: ' + error.message; }
-      }
+      try { await ensureDatabaseReady(); await refreshLanes(); }
+      catch (error) { dbStatus.textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     function prepareLaneForm(mode) {
       editingLaneId = mode === 'change' ? editingLaneId : null;
@@ -559,7 +557,7 @@
     async function showBowlersList() {
       currentEntity = 'Bowlers'; hideScreens(); bowlersListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(false); closeMenu();
-      if (dbReady) { try { await refreshBowlers(); } catch (error) { document.getElementById('bowlersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
+      try { await ensureDatabaseReady(); await refreshBowlers(); } catch (error) { document.getElementById('bowlersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     function prepareBowlerForm(mode) {
       hideScreens(); bowlerFormScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); currentEntity = 'Bowlers'; setMatchesActive(false); closeMenu();
@@ -593,7 +591,7 @@
     async function showLeaguesList() {
       currentEntity = 'Leagues'; hideScreens(); leaguesListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setTeamsActive(false); setTeamMembersActive(false); setLeaguesActive(true); setMatchesActive(false); closeMenu();
-      if (dbReady) { try { await refreshLeagues(); } catch (error) { document.getElementById('leaguesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
+      try { await ensureDatabaseReady(); await refreshLeagues(); } catch (error) { document.getElementById('leaguesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     async function loadLeagueLocations(selectedLaneId = '') {
       const select = document.getElementById('leagueLocation');
@@ -677,7 +675,7 @@
     async function showTeamsList() {
       currentEntity = 'Teams'; hideScreens(); teamsListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamMembersActive(false); setTeamsActive(true); setMatchesActive(false); closeMenu();
-      if (dbReady) { try { await refreshTeams(); } catch (error) { document.getElementById('teamsDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; } }
+      try { await ensureDatabaseReady(); await refreshTeams(); } catch (error) { document.getElementById('teamsDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     async function loadTeamLeagues(selectedId = '') {
       const select = document.getElementById('teamLeagueId');
@@ -768,9 +766,9 @@
         // The user can open this screen while the first database initialization
         // is still underway. Always await initialization rather than leaving the
         // default All-only filter and empty list on screen.
-        const info = await dbCall('init');
+        const info = await ensureDatabaseReady();
         dbReady = true;
-        dbStatus.textContent = `BowlingDB ready · SQLite ${info.version}`;
+        dbStatus.textContent = `BowlingDB ready${info.version ? ' · SQLite ' + info.version : ''}`;
         await loadTeamMembersFilter();
         await refreshTeamMembers();
       } catch (error) {
@@ -900,10 +898,8 @@
     async function showMatchesList() {
       currentEntity = 'Matches'; hideScreens(); matchesListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
-      if (dbReady) {
-        try { await refreshMatches(); }
-        catch (error) { document.getElementById('matchesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
-      }
+      try { await ensureDatabaseReady(); await refreshMatches(); }
+      catch (error) { document.getElementById('matchesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     let selectedMatchId = null;
     let editingMatchId = null;
@@ -1056,7 +1052,7 @@
     function scoreInputHtml(bowler, game) {
       const key = `${game}:${bowler.BowlerId}`;
       const value = Object.prototype.hasOwnProperty.call(savedScoreMap, key) ? savedScoreMap[key] : '';
-      return `<td><input class="score-entry" type="number" min="0" max="300" step="1" inputmode="numeric" data-bowler="${Number(bowler.BowlerId)}" data-game="${game}" aria-label="${escapeHtml(bowler.FullName)} Game ${game}" value="${value === null ? '' : escapeHtml(value)}"></td>`;
+      return `<td><input class="score-entry" type="number" min="0" max="300" step="1" inputmode="numeric" enterkeyhint="next" data-bowler="${Number(bowler.BowlerId)}" data-game="${game}" aria-label="${escapeHtml(bowler.FullName)} Game ${game}" value="${value === null ? '' : escapeHtml(value)}"></td>`;
     }
     function renderScoreGrid(focusGame = null) {
       const headers = Array.from({length: scoreGameCount}, (_, i) => `<th>Game ${i+1}</th>`).join('');
@@ -1070,8 +1066,9 @@
         });
         input.addEventListener('keydown', event => {
           // Android's numeric keypad Next action is commonly delivered as Enter.
-          if (event.key !== 'Enter' && event.key !== 'NumpadEnter') return;
+          if (event.key !== 'Enter' && event.key !== 'NumpadEnter' && event.keyCode !== 13) return;
           event.preventDefault();
+          event.stopPropagation();
           const currentGame = Number(input.dataset.game);
           const currentBowlerIndex = scoreBowlers.findIndex(b => Number(b.BowlerId) === Number(input.dataset.bowler));
           const firstMode = document.querySelector('input[name="scoreTabOrder"]:checked')?.value || 'row-first';
@@ -1230,7 +1227,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v44', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v45', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -1258,6 +1255,24 @@
         pending.set(id, { resolve, reject });
         worker.postMessage({ id, type, data });
       });
+    }
+    // Every screen shares one initialization promise. If a user taps a menu
+    // immediately after launch, the screen waits for startup rather than racing
+    // a second database-open request.
+    let databaseReadyPromise = null;
+    function ensureDatabaseReady() {
+      if (dbReady) return Promise.resolve({ version: null });
+      if (!databaseReadyPromise) {
+        databaseReadyPromise = dbCall('init').then(info => {
+          dbReady = true;
+          dbStatus.textContent = `BowlingDB ready · SQLite ${info.version}`;
+          return info;
+        }).catch(error => {
+          databaseReadyPromise = null;
+          throw error;
+        });
+      }
+      return databaseReadyPromise;
     }
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -1481,9 +1496,9 @@
     });
     (async () => {
       try {
-        const info = await dbCall('init');
+        const info = await ensureDatabaseReady();
         dbReady = true;
-        dbStatus.textContent = `BowlingDB ready · SQLite ${info.version}`;
+        dbStatus.textContent = `BowlingDB ready${info.version ? ' · SQLite ' + info.version : ''}`;
         await refreshLanes();
       } catch (error) {
         dbStatus.textContent = 'BowlingDB could not be opened: ' + error.message;
