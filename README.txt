@@ -1,6 +1,16 @@
-Bowling PWA — Build 1 Version 39 (b1v40)
+Bowling PWA — Build 1 Version 41 (b1v41)
 
 Changes in this version
+- Adds optional positive-integer Order fields to Teams and TeamMembers; existing databases gain these columns in place without deleting records.
+- Team Member Order inserts shift existing assigned members at or after that position down one position.
+- Settings lists Teams and Team Members that have no Order value.
+- Scores display each team’s bowlers in Order ascending, with unordered bowlers after ordered bowlers.
+- Scores entry starts at the first Game 1 cell; Enter/keyboard Next moves downward through the current game, then to the next game column, and finally to Save.
+- Adds optional positive-integer Order fields to Teams and TeamMembers; existing databases gain the columns in place.
+- Team Member Order inserts shift existing assigned members at or after that position down by one.
+- Settings reports Teams and Team Members whose Order is blank.
+- Scores list bowlers within each team by Order ascending, with unordered members after ordered members.
+- Scores entry starts at Game 1, first bowler; Enter/keyboard Next moves downward through the current game, then to the next game column, then to Save.
 - Team Members now waits for SQLite initialization before loading the Show Team dropdown and membership list, preventing an early screen opening from leaving the list empty.
 - Matches list removes the radio-button column, formats dates as mm/dd/yyyy, places Our Team and Opponent Team after Date, and displays Match/Practice without type codes.
 - Add Match captures optional LanesUsed (up to 5 characters), Temp (positive whole number), and Humidity (positive whole number). Existing databases are upgraded in place without deleting match or score data.

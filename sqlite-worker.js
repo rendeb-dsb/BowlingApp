@@ -49,11 +49,13 @@ async function initializeOnce() {
     Active INTEGER NOT NULL DEFAULT 1 CHECK(Active IN (0, 1)),
     LeagueId INTEGER NOT NULL,
     TeamType TEXT NOT NULL DEFAULT 'M' CHECK(TeamType IN ('P', 'M')),
+    "Order" INTEGER CHECK("Order" IS NULL OR (typeof("Order")='integer' AND "Order">0)),
     FOREIGN KEY (LeagueId) REFERENCES Leagues(LeagueId) ON DELETE RESTRICT
   );
   CREATE TABLE IF NOT EXISTS TeamMembers (
     TeamId INTEGER NOT NULL,
     BowlerId INTEGER NOT NULL,
+    "Order" INTEGER CHECK("Order" IS NULL OR (typeof("Order")='integer' AND "Order">0)),
     PRIMARY KEY (TeamId, BowlerId),
     FOREIGN KEY (TeamId) REFERENCES Teams(TeamId) ON DELETE CASCADE,
     FOREIGN KEY (BowlerId) REFERENCES Bowlers(BowlerId) ON DELETE CASCADE
@@ -98,6 +100,9 @@ async function initializeOnce() {
   if (!matchColumns.includes('Temp')) db.exec("ALTER TABLE Matches ADD COLUMN Temp INTEGER CHECK(Temp IS NULL OR (typeof(Temp)='integer' AND Temp > 0))");
   if (!matchColumns.includes('Humidity')) db.exec("ALTER TABLE Matches ADD COLUMN Humidity INTEGER CHECK(Humidity IS NULL OR (typeof(Humidity)='integer' AND Humidity > 0))");
   const teamColumns = rows('PRAGMA table_info(Teams)').map(column => column.name);
+  if (!teamColumns.includes('Order')) db.exec(`ALTER TABLE Teams ADD COLUMN "Order" INTEGER CHECK("Order" IS NULL OR (typeof("Order")='integer' AND "Order">0))`);
+  const teamMemberColumns = rows('PRAGMA table_info(TeamMembers)').map(column => column.name);
+  if (!teamMemberColumns.includes('Order')) db.exec(`ALTER TABLE TeamMembers ADD COLUMN "Order" INTEGER CHECK("Order" IS NULL OR (typeof("Order")='integer' AND "Order">0))`);
   if (!teamColumns.includes('TeamType')) {
     db.exec("ALTER TABLE Teams ADD COLUMN TeamType TEXT NOT NULL DEFAULT 'M' CHECK(TeamType IN ('P', 'M'))");
     db.exec("UPDATE Teams SET TeamType='M'");
@@ -196,14 +201,14 @@ self.onmessage = async event => {
     } else if (type === 'listTeamLeagues') {
       self.postMessage({ id, ok: true, data: rows('SELECT LeagueId, LeagueName FROM Leagues ORDER BY LeagueName COLLATE NOCASE, LeagueId') });
     } else if (type === 'listTeams') {
-      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.Active, Teams.LeagueId, Teams.TeamType, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId = Teams.LeagueId ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
+      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.Active, Teams.LeagueId, Teams.TeamType, Teams."Order", Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId = Teams.LeagueId ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
     } else if (type === 'getTeam') {
-      self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name, Active, LeagueId, TeamType FROM Teams WHERE TeamId = ?', [requestPayload.TeamId])[0] || null });
+      self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name, Active, LeagueId, TeamType, "Order" FROM Teams WHERE TeamId = ?', [requestPayload.TeamId])[0] || null });
     } else if (type === 'insertTeam') {
-      db.exec({ sql: 'INSERT INTO Teams (Name, Active, LeagueId, TeamType) VALUES (?, ?, ?, ?)', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamType] });
+      db.exec({ sql: 'INSERT INTO Teams (Name, Active, LeagueId, TeamType, "Order") VALUES (?, ?, ?, ?, ?)', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamType, requestPayload.Order ?? null] });
       self.postMessage({ id, ok: true, data: { TeamId: db.selectValue('SELECT last_insert_rowid()') } });
     } else if (type === 'updateTeam') {
-      db.exec({ sql: 'UPDATE Teams SET Name=?, Active=?, LeagueId=?, TeamType=? WHERE TeamId=?', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamType, requestPayload.TeamId] });
+      db.exec({ sql: 'UPDATE Teams SET Name=?, Active=?, LeagueId=?, TeamType=?, "Order"=? WHERE TeamId=?', bind: [requestPayload.Name, requestPayload.Active, requestPayload.LeagueId, requestPayload.TeamType, requestPayload.Order ?? null, requestPayload.TeamId] });
       self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, changes: db.changes() } });
     } else if (type === 'deleteTeam') {
       db.exec({ sql: 'DELETE FROM Teams WHERE TeamId = ?', bind: [requestPayload.TeamId] });
@@ -246,7 +251,7 @@ self.onmessage = async event => {
       self.postMessage({ id, ok: true, data: rows(`SELECT Bowlers.BowlerId, Bowlers.FirstName, Bowlers.LastName, trim(Bowlers.FirstName || ' ' || Bowlers.LastName) AS FullName, TeamMembers.TeamId
         FROM TeamMembers JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId
         WHERE TeamMembers.TeamId IN (?, ?) AND Bowlers.Active=1
-        ORDER BY CASE WHEN TeamMembers.TeamId=? THEN 0 ELSE 1 END, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`, [requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.OurTeamId]) });
+        ORDER BY CASE WHEN TeamMembers.TeamId=? THEN 0 ELSE 1 END, TeamMembers."Order" IS NULL, TeamMembers."Order", Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`, [requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.OurTeamId]) });
     } else if (type === 'listScores') {
       self.postMessage({ id, ok: true, data: rows('SELECT ScoreId, MatchId, GameNbr, BowlerId, Score FROM Scores WHERE MatchId=? ORDER BY GameNbr, BowlerId', [requestPayload.MatchId]) });
     } else if (type === 'saveMatchScores') {
@@ -289,20 +294,43 @@ self.onmessage = async event => {
       self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name FROM Teams ORDER BY Name COLLATE NOCASE, TeamId') });
     } else if (type === 'listTeamMembers') {
       const teamId = Number(requestPayload?.TeamId ?? -1);
-      const sql = 'SELECT TeamMembers.TeamId, TeamMembers.BowlerId, Teams.Name AS TeamName, Bowlers.FirstName, Bowlers.LastName FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId ' +
+      const sql = 'SELECT TeamMembers.TeamId, TeamMembers.BowlerId, TeamMembers."Order", Teams.Name AS TeamName, Bowlers.FirstName, Bowlers.LastName FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId ' +
         (teamId === -1 ? '' : 'WHERE TeamMembers.TeamId=? ') +
-        'ORDER BY Teams.Name COLLATE NOCASE, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE';
+        'ORDER BY Teams.Name COLLATE NOCASE, TeamMembers."Order" IS NULL, TeamMembers."Order", Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE';
       self.postMessage({ id, ok: true, data: rows(sql, teamId === -1 ? [] : [teamId]) });
+    } else if (type === 'getTeamMember') {
+      self.postMessage({ id, ok: true, data: rows('SELECT TeamId, BowlerId, "Order" FROM TeamMembers WHERE TeamId=? AND BowlerId=?', [requestPayload.TeamId, requestPayload.BowlerId])[0] || null });
+    } else if (type === 'listMissingOrders') {
+      const missingTeams = rows('SELECT TeamId, Name FROM Teams WHERE "Order" IS NULL ORDER BY Name COLLATE NOCASE, TeamId');
+      const missingMembers = rows('SELECT Teams.Name AS TeamName, Bowlers.FirstName, Bowlers.LastName FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId WHERE TeamMembers."Order" IS NULL ORDER BY Teams.Name COLLATE NOCASE, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE');
+      const list = (items, format) => items.length ? '<ul>' + items.map(format).join('') + '</ul>' : '<p>None</p>';
+      const message = '<strong>Teams missing Order:</strong>' + list(missingTeams, x => '<li>' + String(x.Name).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ' (TeamId ' + Number(x.TeamId) + ')</li>') + '<strong>Team Members missing Order:</strong>' + list(missingMembers, x => '<li>' + String(x.TeamName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ' — ' + String(x.LastName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ', ' + String(x.FirstName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</li>');
+      self.postMessage({ id, ok: true, data: { message, missingTeams: missingTeams.length, missingMembers: missingMembers.length } });
     } else if (type === 'insertTeamMember') {
       if (!rows('SELECT TeamId FROM Teams WHERE TeamId=? AND Active=1', [requestPayload.TeamId]).length) throw new Error('Only active teams can have new memberships.');
       if (!rows('SELECT BowlerId FROM Bowlers WHERE BowlerId=? AND Active=1', [requestPayload.BowlerId]).length) throw new Error('Only active bowlers can be assigned to teams.');
-      db.exec({ sql: 'INSERT INTO TeamMembers (TeamId, BowlerId) VALUES (?, ?)', bind: [requestPayload.TeamId, requestPayload.BowlerId] });
-      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId } });
+      const order = requestPayload.Order == null ? null : Number(requestPayload.Order);
+      if (order !== null && (!Number.isInteger(order) || order < 1)) throw new Error('Order must be a positive whole number or blank.');
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if (order !== null) db.exec({ sql: 'UPDATE TeamMembers SET "Order"="Order"+1 WHERE TeamId=? AND "Order">=?', bind: [requestPayload.TeamId, order] });
+        db.exec({ sql: 'INSERT INTO TeamMembers (TeamId, BowlerId, "Order") VALUES (?, ?, ?)', bind: [requestPayload.TeamId, requestPayload.BowlerId, order] });
+        db.exec('COMMIT');
+      } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
+      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId, Order: order } });
     } else if (type === 'updateTeamMember') {
       if (!rows('SELECT TeamId FROM Teams WHERE TeamId=? AND Active=1', [requestPayload.TeamId]).length) throw new Error('Only active teams can have memberships.');
       if (!rows('SELECT BowlerId FROM Bowlers WHERE BowlerId=? AND Active=1', [requestPayload.BowlerId]).length) throw new Error('Only active bowlers can be assigned to teams.');
-      db.exec({ sql: 'UPDATE TeamMembers SET TeamId=?, BowlerId=? WHERE TeamId=? AND BowlerId=?', bind: [requestPayload.TeamId, requestPayload.BowlerId, requestPayload.oldTeamId, requestPayload.oldBowlerId] });
-      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId } });
+      const order = requestPayload.Order == null ? null : Number(requestPayload.Order);
+      if (order !== null && (!Number.isInteger(order) || order < 1)) throw new Error('Order must be a positive whole number or blank.');
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        db.exec({ sql: 'UPDATE TeamMembers SET "Order"=NULL WHERE TeamId=? AND BowlerId=?', bind: [requestPayload.oldTeamId, requestPayload.oldBowlerId] });
+        if (order !== null) db.exec({ sql: 'UPDATE TeamMembers SET "Order"="Order"+1 WHERE TeamId=? AND "Order">=? AND NOT (TeamId=? AND BowlerId=?)', bind: [requestPayload.TeamId, order, requestPayload.oldTeamId, requestPayload.oldBowlerId] });
+        db.exec({ sql: 'UPDATE TeamMembers SET TeamId=?, BowlerId=?, "Order"=? WHERE TeamId=? AND BowlerId=?', bind: [requestPayload.TeamId, requestPayload.BowlerId, order, requestPayload.oldTeamId, requestPayload.oldBowlerId] });
+        db.exec('COMMIT');
+      } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
+      self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId, Order: order } });
     } else if (type === 'deleteTeamMember') {
       db.exec({ sql: 'DELETE FROM TeamMembers WHERE TeamId=? AND BowlerId=?', bind: [requestPayload.TeamId, requestPayload.BowlerId] });
       self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, BowlerId: requestPayload.BowlerId, changes: db.changes() } });

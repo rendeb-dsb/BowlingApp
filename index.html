@@ -133,7 +133,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v40</div>
+    <div class="version">b1v41</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -170,9 +170,8 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>This is the initial Settings display for the Bowling app.</p>
-      <div class="status-note">Settings options will be implemented in a later version.</div>
-      <p><strong>Application version:</strong> b1v40</p>
+      <p>Application version: <strong>b1v41</strong></p>
+      <div class="status-note" id="orderSetupStatus">Checking team and team-member ordering…</div>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
@@ -276,6 +275,7 @@
           <tr><td class="label-cell"><label for="teamName">Name:</label></td><td class="control-cell"><input id="teamName" name="Name" type="text" required></td></tr>
           <tr><td class="label-cell"><label for="teamLeagueId">League:</label></td><td class="control-cell"><select id="teamLeagueId" name="LeagueId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a league</option></select></td></tr>
           <tr><td class="label-cell"><label for="teamType">Team Type:</label></td><td class="control-cell"><select id="teamType" name="TeamType" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="M">Match</option><option value="P">Practice</option></select></td></tr>
+          <tr><td class="label-cell"><label for="teamOrder">Order:</label></td><td class="control-cell"><input id="teamOrder" name="Order" type="number" min="1" step="1" inputmode="numeric" style="width:110px;max-width:100%;" aria-label="Team order"></td></tr>
           <tr><td class="label-cell"><label for="teamActive">Active:</label></td><td class="control-cell"><label class="active-checkbox"><input id="teamActive" name="Active" type="checkbox" checked> Active</label></td></tr>
         </tbody></table>
       </form>
@@ -298,6 +298,7 @@
         <table class="lane-fields" aria-label="Team member details"><tbody>
           <tr><td class="label-cell"><label for="teamMemberTeamId">Team:</label></td><td class="control-cell"><select id="teamMemberTeamId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a team</option></select></td></tr>
           <tr><td class="label-cell"><label for="teamMemberBowlerId">Bowler:</label></td><td class="control-cell"><select id="teamMemberBowlerId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a bowler</option></select></td></tr>
+          <tr><td class="label-cell"><label for="teamMemberOrder">Order:</label></td><td class="control-cell"><input id="teamMemberOrder" type="number" min="1" step="1" inputmode="numeric" style="width:110px;max-width:100%;" aria-label="Team member order"></td></tr>
         </tbody></table>
         <p class="list-note">Only active teams and active bowlers are available. A bowler can be assigned to a particular team only once.</p>
       </form>
@@ -339,7 +340,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v40</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v41</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -456,9 +457,12 @@
       setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false);
       setMatchesActive(false); closeMenu();
     }
-    function showSettings() {
+    async function showSettings() {
       hideScreens();
       settingsPanel.style.display = 'block';
+      const orderStatus = document.getElementById('orderSetupStatus');
+      orderStatus.textContent = 'Checking team and team-member ordering…';
+      try { const missing = await dbCall('listMissingOrders'); orderStatus.innerHTML = missing.message; } catch (error) { orderStatus.textContent = 'Unable to check ordering: ' + error.message; }
       setLanesActive(false);
       setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false);
       setMatchesActive(false); closeMenu();
@@ -680,7 +684,7 @@
       hideScreens(); teamFormScreen.style.display = 'block'; currentEntity = 'Teams';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamMembersActive(false); setTeamsActive(true); setMatchesActive(false); closeMenu();
       document.getElementById('teamFormTitle').textContent = mode === 'change' ? 'Change - Team Management' : 'Add Team Management';
-      document.getElementById('teamForm').reset(); document.getElementById('teamType').value = 'M'; document.getElementById('teamActive').checked = true; clearTeamFormMessage(); await loadTeamLeagues();
+      document.getElementById('teamForm').reset(); document.getElementById('teamType').value = 'M'; document.getElementById('teamActive').checked = true; document.getElementById('teamOrder').value = ''; clearTeamFormMessage(); await loadTeamLeagues();
     }
     async function showAddTeam() { editingTeamId = null; await prepareTeamForm('add'); }
     async function showChangeTeam() {
@@ -693,6 +697,7 @@
         editingTeamId = teamId; await prepareTeamForm('change');
         document.getElementById('teamName').value = team.Name || '';
         document.getElementById('teamType').value = team.TeamType || 'M';
+        document.getElementById('teamOrder').value = team.Order ?? '';
         document.getElementById('teamActive').checked = Number(team.Active) === 1;
         await loadTeamLeagues(team.LeagueId);
       } catch (error) { showAppMessage('Unable to load the selected team: ' + error.message); }
@@ -721,13 +726,16 @@
       const leagueId = document.getElementById('teamLeagueId').value;
       const active = document.getElementById('teamActive').checked ? 1 : 0;
       const teamType = document.getElementById('teamType').value;
+      const orderRaw = document.getElementById('teamOrder').value.trim();
+      const teamOrder = orderRaw === '' ? null : Number(orderRaw);
+      if (orderRaw !== '' && (!Number.isInteger(teamOrder) || teamOrder < 1)) return showTeamFormMessage('Order must be a positive whole number or left blank.');
       if (!['P', 'M'].includes(teamType)) return showTeamFormMessage('Team Type must be P (Practice) or M (Match).');
       if (!name) return showTeamFormMessage('Name is required and cannot be blank.');
       if (!leagueId) return showTeamFormMessage('League is required. Select a league.');
       if (!dbReady) return showTeamFormMessage('BowlingDB is not ready yet. Please try again in a moment.');
       const btn = document.getElementById('saveTeamButton'); btn.disabled = true; btn.textContent = 'Saving…';
       try {
-        const payload = { Name: name, LeagueId: Number(leagueId), Active: active, TeamType: teamType };
+        const payload = { Name: name, LeagueId: Number(leagueId), Active: active, TeamType: teamType, Order: teamOrder };
         if (editingTeamId === null) await dbCall('insertTeam', payload); else await dbCall('updateTeam', { TeamId: editingTeamId, ...payload });
         editingTeamId = null; await showTeamsList();
       } catch (error) {
@@ -812,7 +820,7 @@
       hideScreens(); teamMemberFormScreen.style.display = 'block'; currentEntity = 'TeamMembers';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setTeamMembersActive(true); setMatchesActive(false); closeMenu();
       document.getElementById('teamMemberFormTitle').textContent = mode === 'change' ? 'Change - Team Member' : 'Add Team Member';
-      document.getElementById('teamMemberForm').reset(); clearTeamMemberFormMessage(); await loadTeamMemberChoices();
+      document.getElementById('teamMemberForm').reset(); document.getElementById('teamMemberOrder').value = ''; clearTeamMemberFormMessage(); await loadTeamMemberChoices();
     }
     async function showAddTeamMember() { editingTeamMember = null; await prepareTeamMemberForm('add'); }
     async function showChangeTeamMember() {
@@ -823,6 +831,8 @@
       await prepareTeamMemberForm('change');
       document.getElementById('teamMemberTeamId').value = String(teamId);
       document.getElementById('teamMemberBowlerId').value = String(bowlerId);
+      const existingMember = await dbCall('getTeamMember', { TeamId: teamId, BowlerId: bowlerId });
+      document.getElementById('teamMemberOrder').value = existingMember?.Order ?? '';
     }
     async function deleteSelectedTeamMember() {
       const selected = document.querySelector('input[name="selectedTeamMember"]:checked');
@@ -856,10 +866,13 @@
       event.preventDefault(); clearTeamMemberFormMessage();
       const TeamId = Number(document.getElementById('teamMemberTeamId').value);
       const BowlerId = Number(document.getElementById('teamMemberBowlerId').value);
+      const orderRaw = document.getElementById('teamMemberOrder').value.trim();
+      const Order = orderRaw === '' ? null : Number(orderRaw);
+      if (orderRaw !== '' && (!Number.isInteger(Order) || Order < 1)) return showTeamMemberFormMessage('Order must be a positive whole number or left blank.');
       if (!TeamId || !BowlerId) return showTeamMemberFormMessage('Select both a team and a bowler.');
       try {
-        if (editingTeamMember === null) await dbCall('insertTeamMember', { TeamId, BowlerId });
-        else await dbCall('updateTeamMember', { oldTeamId: editingTeamMember.TeamId, oldBowlerId: editingTeamMember.BowlerId, TeamId, BowlerId });
+        if (editingTeamMember === null) await dbCall('insertTeamMember', { TeamId, BowlerId, Order });
+        else await dbCall('updateTeamMember', { oldTeamId: editingTeamMember.TeamId, oldBowlerId: editingTeamMember.BowlerId, TeamId, BowlerId, Order });
         editingTeamMember = null; await showTeamMembersList();
       } catch (error) {
         if (/UNIQUE constraint failed|PRIMARY KEY constraint failed/i.test(error.message)) showTeamMemberFormMessage('This bowler is already assigned to that team.');
@@ -1032,13 +1045,31 @@
       const value = Object.prototype.hasOwnProperty.call(savedScoreMap, key) ? savedScoreMap[key] : '';
       return `<td><input class="score-entry" type="number" min="0" max="300" step="1" inputmode="numeric" data-bowler="${Number(bowler.BowlerId)}" data-game="${game}" aria-label="${escapeHtml(bowler.FullName)} Game ${game}" value="${value === null ? '' : escapeHtml(value)}"></td>`;
     }
-    function renderScoreGrid() {
+    function renderScoreGrid(focusGame = null) {
       const headers = Array.from({length: scoreGameCount}, (_, i) => `<th>Game ${i+1}</th>`).join('');
       const rowsHtml = scoreBowlers.map(bowler => `<tr><td>${escapeHtml(bowler.FullName)}</td>${Array.from({length: scoreGameCount}, (_, i) => scoreInputHtml(bowler, i+1)).join('')}</tr>`).join('');
       document.getElementById('scoresTableWrap').innerHTML = `<div class="lane-list-wrap"><table class="lane-list score-grid" aria-label="Bowling scores"><thead><tr><th>Bowler</th>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
-      document.querySelectorAll('#scoresTableWrap input').forEach(input => input.addEventListener('input', preserveScoreDraft));
+      document.querySelectorAll('#scoresTableWrap input').forEach(input => {
+        input.addEventListener('input', preserveScoreDraft);
+        input.addEventListener('keydown', event => {
+          if (event.key !== 'Enter' && event.key !== 'NumpadEnter') return;
+          event.preventDefault();
+          const currentGame = Number(input.dataset.game);
+          const currentBowlerIndex = scoreBowlers.findIndex(b => Number(b.BowlerId) === Number(input.dataset.bowler));
+          let nextInput = null;
+          if (currentBowlerIndex >= 0 && currentBowlerIndex < scoreBowlers.length - 1) {
+            const nextBowler = scoreBowlers[currentBowlerIndex + 1];
+            nextInput = document.querySelector(`#scoresTableWrap input[data-game="${currentGame}"][data-bowler="${Number(nextBowler.BowlerId)}"]`);
+          } else if (currentGame < scoreGameCount) {
+            const firstBowler = scoreBowlers[0];
+            nextInput = document.querySelector(`#scoresTableWrap input[data-game="${currentGame + 1}"][data-bowler="${Number(firstBowler.BowlerId)}"]`);
+          }
+          if (nextInput) nextInput.focus(); else document.getElementById('saveScoresButton').focus();
+        });
+      });
       document.getElementById('nextGameButton').style.display = activeScoreMatchType === 'P' ? '' : 'none';
       document.getElementById('scoresStatus').textContent = `${scoreBowlers.length} bowlers · ${scoreGameCount} game${scoreGameCount === 1 ? '' : 's'} · ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
+      if (focusGame !== null) { const first = document.querySelector(`#scoresTableWrap input[data-game="${focusGame}"]`); if (first) setTimeout(() => first.focus(), 100); }
     }
     function setScoresMessage(message) {
       const el = document.getElementById('scoresMessage'); el.textContent = message; el.classList.toggle('show', !!message);
@@ -1075,7 +1106,7 @@
         document.getElementById('scoresTitle').textContent = `Scores - ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'} - ${titleDate}`;
         currentEntity = 'Scores'; hideScreens(); scoresScreen.style.display = 'block';
         setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu(); setScoresMessage('');
-        renderScoreGrid();
+        renderScoreGrid(1);
       } catch (error) { showAppMessage('Unable to open score entry: ' + error.message); }
     }
     document.getElementById('nextGameButton').addEventListener('click', () => {
@@ -1083,7 +1114,7 @@
       const incomplete = [...document.querySelectorAll(`#scoresTableWrap input[data-game="${scoreGameCount}"]`)].some(input => input.value.trim() === '' || !Number.isInteger(Number(input.value)) || Number(input.value) < 0 || Number(input.value) > 300);
       if (incomplete) return setScoresMessage(`Enter a valid score from 0 through 300 for every bowler in Game ${scoreGameCount} before adding another game.`);
       document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]').forEach(input => { savedScoreMap[`${input.dataset.game}:${input.dataset.bowler}`] = input.value; });
-      scoreGameCount += 1; setScoresMessage(''); renderScoreGrid(); preserveScoreDraft();
+      scoreGameCount += 1; setScoresMessage(''); renderScoreGrid(scoreGameCount); preserveScoreDraft();
     });
     document.getElementById('saveScoresButton').addEventListener('click', async () => {
       if (scoreBusy) return;
@@ -1156,7 +1187,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v40', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v41', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
