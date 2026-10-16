@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 50 (b1v50)
+Bowling PWA — Build 1 Version 50 (b1v51)
 
 Changes in this version
 - Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
@@ -229,20 +229,27 @@ Additional b1v46 corrections
 - Database initialization now retries transient OPFS access-handle conflicts with longer backoff in both the worker and the app startup path. Settings waits for database initialization before querying missing Order values.
 
 
-Changes in b1v50
+Changes in b1v51
 - Opening Scores focuses and selects the contents of Game 1 for the first bowler.
 - Draft recovery now compares a saved local draft against scores currently stored in the database. A draft that matches saved scores is treated as stale and removed without prompting.
 - Drafts are retained only when their values differ from the database, including clearing a previously saved score.
 
 
-Changes in b1v50
+Changes in b1v51
 - Widened the Matches list Date column by 15 pixels.
 - Added a Show match type filter (Match by default, Practice, or All).
 - When saving Practice scores, all-zero games are treated as unused and not saved; previously saved all-zero Practice game records are removed. Remaining Practice games are renumbered consecutively.
 
 
-Changes in b1v50
+Changes in b1v51
 - Team Member form team and bowler dropdowns reduced to 180px wide.
 - Order field reduced to 28px wide.
 - Team choices show team name only, without league name.
 - Available bowler choices exclude bowlers already assigned to any team of the selected team type (Match or Practice); existing bowler remains available in Change mode.
+
+
+Changes in b1v51
+- Reduced the Matches list Date column width by one-third.
+- Moved Opponent Team before Our Team in the Matches list.
+- Match form team dropdowns display team names only, without league names.
+- Team choices are filtered to Match or Practice according to the selected Match Type; if the type is blank, all teams are available.

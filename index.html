@@ -129,7 +129,7 @@
     #scoresTableWrap { overflow-x: auto; position: relative; }
   
     .match-select-cell { width:42px; min-width:42px; max-width:42px; text-align:center; }
-    .matches-date-cell { width:152px; min-width:152px; max-width:152px; }
+    .matches-date-cell { width:101px; min-width:101px; max-width:101px; }
     .matches-filter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 12px; }
     .matches-filter label { font-size:14px; font-weight:600; }
     .matches-filter select { min-height:36px; padding:6px 10px; max-width:100%; }
@@ -140,7 +140,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v50</div>
+    <div class="version">b1v51</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -177,7 +177,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v50</strong></p>
+      <p>Application version: <strong>b1v51</strong></p>
       <p><strong>Score entry Next-button order</strong></p>
       <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
         <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
@@ -329,7 +329,7 @@
           <tr><td class="label-cell"><label for="matchLanesUsed">Lanes:</label></td><td class="control-cell"><input id="matchLanesUsed" name="LanesUsed" type="text" maxlength="5" style="width:100px;max-width:100%;" aria-label="Lanes used"></td></tr>
           <tr><td class="label-cell"><label for="matchTemp">Temp.:</label></td><td class="control-cell"><input id="matchTemp" name="Temp" type="text" inputmode="numeric" style="width:100px;max-width:100%;" aria-label="Temperature"></td></tr>
           <tr><td class="label-cell"><label for="matchHumidity">Hum.:</label></td><td class="control-cell"><input id="matchHumidity" name="Humidity" type="text" inputmode="numeric" style="width:100px;max-width:100%;" aria-label="Humidity"></td></tr>
-          <tr><td class="label-cell"><label for="matchType">Match Type:</label></td><td class="control-cell"><select id="matchType" name="MatchType" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="M">Match (3 games)</option><option value="P">Practice (variable games)</option></select></td></tr>
+          <tr><td class="label-cell"><label for="matchType">Match Type:</label></td><td class="control-cell"><select id="matchType" name="MatchType" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="" selected>Select a match type</option><option value="M">Match (3 games)</option><option value="P">Practice (variable games)</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchLocation">Location:</label></td><td class="control-cell"><select id="matchLocation" name="Location" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a bowling center</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchLeague">League:</label></td><td class="control-cell"><select id="matchLeague" name="LeagueId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a league</option></select></td></tr>
           <tr><td class="label-cell"><label for="matchOurTeam">Our Team:</label></td><td class="control-cell"><select id="matchOurTeam" name="OurTeamId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select our team</option></select></td></tr>
@@ -353,7 +353,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v50</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v51</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -926,9 +926,9 @@
           const displayDate = dateParts ? `${dateParts[2]}/${dateParts[3]}/${dateParts[1]}` : rawDate;
           const id = Number(match.MatchId);
           const checked = Number(selectedMatchId) === id ? ' checked' : '';
-          return `<tr data-match-row="${id}"><td class="match-select-cell"><input type="radio" name="selectedMatch" aria-label="Select match ${id}" data-select-match="${id}"${checked}></td><td><button class="action-button scores-row-button" type="button" data-scores-match="${id}">Scores</button></td><td class="matches-date-cell">${escapeHtml(displayDate)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.OppoTeamName)}</td><td>${match.MatchType === 'P' ? 'Practice' : 'Match'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td></tr>`;
+          return `<tr data-match-row="${id}"><td class="match-select-cell"><input type="radio" name="selectedMatch" aria-label="Select match ${id}" data-select-match="${id}"${checked}></td><td><button class="action-button scores-row-button" type="button" data-scores-match="${id}">Scores</button></td><td class="matches-date-cell">${escapeHtml(displayDate)}</td><td>${escapeHtml(match.OppoTeamName)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${match.MatchType === 'P' ? 'Practice' : 'Match'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td></tr>`;
         }).join('');
-        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th class="match-select-cell" aria-label="Select"></th><th>Action</th><th class="matches-date-cell">Date</th><th>Our Team</th><th>Opponent Team</th><th>Type</th><th>Location</th><th>League</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th class="match-select-cell" aria-label="Select"></th><th>Action</th><th class="matches-date-cell">Date</th><th>Opponent Team</th><th>Our Team</th><th>Type</th><th>Location</th><th>League</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
         content.querySelectorAll('[data-select-match]').forEach(radio => radio.addEventListener('change', () => {
           selectedMatchId = Number(radio.dataset.selectMatch);
           content.querySelectorAll('tr[data-match-row]').forEach(row => row.classList.toggle('selected-row', Number(row.dataset.matchRow) === selectedMatchId));
@@ -973,8 +973,6 @@
         };
         populate('matchLocation', 'Select a bowling center', locations, 'LaneId', row => row.Name);
         populate('matchLeague', 'Select a league', leagues, 'LeagueId', row => row.LeagueName);
-        populate('matchOurTeam', 'Select our team', teams, 'TeamId', row => `${row.Name} — ${row.LeagueName} (${row.TeamType === 'P' ? 'Practice' : 'Match'})`);
-        populate('matchOppoTeam', 'Select opponent team', teams, 'TeamId', row => `${row.Name} — ${row.LeagueName} (${row.TeamType === 'P' ? 'Practice' : 'Match'})`);
         if (matchToEdit) {
           document.getElementById('matchLanesUsed').value = matchToEdit.LanesUsed ?? '';
           document.getElementById('matchTemp').value = matchToEdit.Temp ?? '';
@@ -982,9 +980,24 @@
           document.getElementById('matchType').value = matchToEdit.MatchType || 'M';
           document.getElementById('matchLocation').value = String(matchToEdit.Location);
           document.getElementById('matchLeague').value = String(matchToEdit.LeagueId);
-          document.getElementById('matchOurTeam').value = String(matchToEdit.OurTeamId);
-          document.getElementById('matchOppoTeam').value = String(matchToEdit.OppoTeamId);
-        } else if (!locations.length || !leagues.length || !teams.length) {
+        }
+        const populateMatchTeams = (preserveSelections = false) => {
+          const type = document.getElementById('matchType').value;
+          const ourSelect = document.getElementById('matchOurTeam');
+          const oppoSelect = document.getElementById('matchOppoTeam');
+          const oldOur = preserveSelections ? ourSelect.value : (matchToEdit ? String(matchToEdit.OurTeamId) : '');
+          const oldOppo = preserveSelections ? oppoSelect.value : (matchToEdit ? String(matchToEdit.OppoTeamId) : '');
+          const relevantTeams = type ? teams.filter(team => team.TeamType === type) : teams;
+          const fillTeamSelect = (select, placeholder, selected) => {
+            select.innerHTML = `<option value="">${placeholder}</option>` + relevantTeams.map(team => `<option value="${Number(team.TeamId)}">${escapeHtml(team.Name)}</option>`).join('');
+            select.disabled = relevantTeams.length === 0;
+            if (relevantTeams.some(team => String(team.TeamId) === selected)) select.value = selected;
+          };
+          fillTeamSelect(ourSelect, 'Select our team', oldOur);
+          fillTeamSelect(oppoSelect, 'Select opponent team', oldOppo);
+        };
+        populateMatchTeams(false);
+        if (!matchToEdit && (!locations.length || !leagues.length || !teams.length)) {
           const missing = [];
           if (!locations.length) missing.push('a bowling center (Lanes)');
           if (!leagues.length) missing.push('a league (Leagues)');
@@ -1035,6 +1048,24 @@
         else if (/CK_Matches_DifferentTeams|CHECK constraint failed/i.test(error.message)) showMatchFormMessage('Our Team and Opponent Team must be different, and the date, lanes, temperature, and humidity must be valid.');
         else showMatchFormMessage('The match could not be saved: ' + error.message);
       } finally { button.disabled = false; }
+    });
+    document.getElementById('matchType').addEventListener('change', () => {
+      const our = document.getElementById('matchOurTeam');
+      const oppo = document.getElementById('matchOppoTeam');
+      const previousOur = our.value;
+      const previousOppo = oppo.value;
+      const type = document.getElementById('matchType').value;
+      // Team choices are filtered by the selected Match/Practice type. A blank type permits all teams.
+      dbCall('listTeams').then(teams => {
+        const relevant = type ? teams.filter(team => team.TeamType === type) : teams;
+        const fill = (select, placeholder, previous) => {
+          select.innerHTML = `<option value="">${placeholder}</option>` + relevant.map(team => `<option value="${Number(team.TeamId)}">${escapeHtml(team.Name)}</option>`).join('');
+          select.disabled = relevant.length === 0;
+          if (relevant.some(team => String(team.TeamId) === previous)) select.value = previous;
+        };
+        fill(our, 'Select our team', previousOur);
+        fill(oppo, 'Select opponent team', previousOppo);
+      }).catch(error => showMatchFormMessage('Unable to load teams: ' + error.message));
     });
     document.getElementById('matchForm').addEventListener('submit', event => event.preventDefault());
     document.getElementById('cancelMatchButton').addEventListener('click', () => { editingMatchId = null; showMatchesList(); });
@@ -1279,7 +1310,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v50', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v51', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
