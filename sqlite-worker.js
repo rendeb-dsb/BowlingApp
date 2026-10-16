@@ -288,13 +288,40 @@ self.onmessage = async event => {
         const gameBowlers = scores.filter(s => Number(s.GameNbr) === gameNbr).map(s => Number(s.BowlerId));
         if (gameBowlers.length !== requiredCount || new Set(gameBowlers).size !== requiredCount || gameBowlers.some(id => !expectedSet.has(id))) throw new Error(`Game ${gameNbr} must contain exactly one score for each participating bowler.`);
       }
+      // A Practice game with zero for every bowler is an unused placeholder, not a played game.
+      // Remove any previously persisted all-zero Practice games, then save only played games.
+      const gamesToSave = match.MatchType === 'P'
+        ? gameNumbers.filter(gameNbr => scores.some(s => Number(s.GameNbr) === gameNbr && Number(s.Score) !== 0))
+        : gameNumbers;
+      const normalizedScores = [];
+      gamesToSave.forEach((oldGameNbr, index) => {
+        scores.filter(s => Number(s.GameNbr) === oldGameNbr).forEach(s => normalizedScores.push({ GameNbr: index + 1, BowlerId: Number(s.BowlerId), Score: Number(s.Score) }));
+      });
       db.exec('BEGIN IMMEDIATE');
       try {
+        if (match.MatchType === 'P') {
+          db.exec(`DELETE FROM Scores
+            WHERE EXISTS (SELECT 1 FROM Matches M WHERE M.MatchId=Scores.MatchId AND M.MatchType='P')
+              AND MatchId IN (
+                SELECT S.MatchId FROM Scores S
+                JOIN Matches M ON M.MatchId=S.MatchId
+                WHERE M.MatchType='P'
+                GROUP BY S.MatchId, S.GameNbr
+                HAVING COUNT(*) > 0 AND SUM(CASE WHEN S.Score <> 0 THEN 1 ELSE 0 END)=0
+              )
+              AND GameNbr IN (
+                SELECT S2.GameNbr FROM Scores S2
+                JOIN Matches M2 ON M2.MatchId=S2.MatchId
+                WHERE M2.MatchType='P' AND S2.MatchId=Scores.MatchId
+                GROUP BY S2.MatchId, S2.GameNbr
+                HAVING COUNT(*) > 0 AND SUM(CASE WHEN S2.Score <> 0 THEN 1 ELSE 0 END)=0
+              )`);
+        }
         db.exec({sql:'DELETE FROM Scores WHERE MatchId=?', bind:[matchId]});
-        for (const s of scores) db.exec({sql:'INSERT INTO Scores (MatchId, GameNbr, BowlerId, Score) VALUES (?, ?, ?, ?)', bind:[matchId, Number(s.GameNbr), Number(s.BowlerId), Number(s.Score)]});
+        for (const s of normalizedScores) db.exec({sql:'INSERT INTO Scores (MatchId, GameNbr, BowlerId, Score) VALUES (?, ?, ?, ?)', bind:[matchId, s.GameNbr, s.BowlerId, s.Score]});
         db.exec('COMMIT');
       } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
-      self.postMessage({ id, ok: true, data: { MatchId: matchId, count: scores.length } });
+      self.postMessage({ id, ok: true, data: { MatchId: matchId, count: normalizedScores.length } });
     } else if (type === 'listTeamsForMemberFilter') {
       self.postMessage({ id, ok: true, data: rows('SELECT TeamId, Name FROM Teams ORDER BY Name COLLATE NOCASE, TeamId') });
     } else if (type === 'listTeamMembers') {
