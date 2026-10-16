@@ -117,7 +117,7 @@ async function initialize() {
     let lastError;
     // OPFS may briefly report an access-handle conflict while another page or
     // worker is finishing startup/shutdown. Clean up and retry transient cases.
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 7; attempt++) {
       try {
         return await initializeOnce();
       } catch (error) {
@@ -128,8 +128,10 @@ async function initialize() {
         poolUtil = null;
         sqliteVersion = null;
         const transientHandleConflict = /Access Handles cannot be created|another open Access Handle|Writable stream associated with the same file|createSyncAccessHandle/i.test(String(error && error.message));
-        if (!transientHandleConflict || attempt === 3) throw error;
-        await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
+        if (!transientHandleConflict || attempt === 6) throw error;
+        // OPFS can retain a temporary handle while a previous page/worker is
+        // shutting down. Give the browser time to release it before reopening.
+        await new Promise(resolve => setTimeout(resolve, Math.min(500 * (attempt + 1), 3000)));
       }
     }
     throw lastError;

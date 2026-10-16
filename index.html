@@ -136,7 +136,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v45</div>
+    <div class="version">b1v46</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -173,7 +173,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v45</strong></p>
+      <p>Application version: <strong>b1v46</strong></p>
       <p><strong>Score entry Next-button order</strong></p>
       <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
         <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
@@ -348,7 +348,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v45</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v46</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -470,7 +470,7 @@
       settingsPanel.style.display = 'block';
       const orderStatus = document.getElementById('orderSetupStatus');
       orderStatus.textContent = 'Checking team and team-member ordering…';
-      try { const missing = await dbCall('listMissingOrders'); orderStatus.innerHTML = missing.message; } catch (error) { orderStatus.textContent = 'Unable to check ordering: ' + error.message; }
+      try { await ensureDatabaseReady(); const missing = await dbCall('listMissingOrders'); orderStatus.innerHTML = missing.message; } catch (error) { orderStatus.textContent = 'Unable to check ordering: ' + error.message; }
       setLanesActive(false);
       setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false);
       setMatchesActive(false); closeMenu();
@@ -1052,7 +1052,19 @@
     function scoreInputHtml(bowler, game) {
       const key = `${game}:${bowler.BowlerId}`;
       const value = Object.prototype.hasOwnProperty.call(savedScoreMap, key) ? savedScoreMap[key] : '';
-      return `<td><input class="score-entry" type="number" min="0" max="300" step="1" inputmode="numeric" enterkeyhint="next" data-bowler="${Number(bowler.BowlerId)}" data-game="${game}" aria-label="${escapeHtml(bowler.FullName)} Game ${game}" value="${value === null ? '' : escapeHtml(value)}"></td>`;
+      return `<td><input class="score-entry" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="next" autocomplete="off" data-bowler="${Number(bowler.BowlerId)}" data-game="${game}" aria-label="${escapeHtml(bowler.FullName)} Game ${game}" value="${value === null ? '' : escapeHtml(value)}"></td>`;
+    }
+    function applyScoreTabIndexOrder() {
+      const inputs = [...document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]')];
+      if (!inputs.length) return;
+      const mode = document.querySelector('input[name="scoreTabOrder"]:checked')?.value || 'row-first';
+      const bowlerIndex = id => scoreBowlers.findIndex(b => Number(b.BowlerId) === Number(id));
+      inputs.sort((a, b) => mode === 'column-first'
+        ? (Number(a.dataset.game) - Number(b.dataset.game)) || (bowlerIndex(a.dataset.bowler) - bowlerIndex(b.dataset.bowler))
+        : (bowlerIndex(a.dataset.bowler) - bowlerIndex(b.dataset.bowler)) || (Number(a.dataset.game) - Number(b.dataset.game)));
+      inputs.forEach((input, index) => { input.tabIndex = index + 1; });
+      const saveButton = document.getElementById('saveScoresButton');
+      if (saveButton) saveButton.tabIndex = inputs.length + 1;
     }
     function renderScoreGrid(focusGame = null) {
       const headers = Array.from({length: scoreGameCount}, (_, i) => `<th>Game ${i+1}</th>`).join('');
@@ -1094,6 +1106,7 @@
           if (nextInput) nextInput.focus(); else document.getElementById('saveScoresButton').focus();
         });
       });
+      applyScoreTabIndexOrder();
       document.getElementById('nextGameButton').style.display = activeScoreMatchType === 'P' ? '' : 'none';
       document.getElementById('scoresStatus').textContent = `${scoreBowlers.length} bowlers · ${scoreGameCount} game${scoreGameCount === 1 ? '' : 's'} · ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
       if (focusGame !== null) { const first = document.querySelector(`#scoresTableWrap input[data-game="${focusGame}"]`); if (first) setTimeout(() => first.focus(), 100); }
@@ -1182,6 +1195,7 @@
     scoreTabOrderRadios.forEach(radio => radio.addEventListener('change', () => {
       if (!radio.checked) return;
       try { localStorage.setItem(scoreTabOrderKey, radio.value); } catch (_) {}
+      applyScoreTabIndexOrder();
     }));
     settingsButton.addEventListener('click', showSettings);
     document.getElementById('homeButton').addEventListener('click', showHome);
@@ -1227,7 +1241,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v45', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v46', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -1263,14 +1277,24 @@
     function ensureDatabaseReady() {
       if (dbReady) return Promise.resolve({ version: null });
       if (!databaseReadyPromise) {
-        databaseReadyPromise = dbCall('init').then(info => {
-          dbReady = true;
-          dbStatus.textContent = `BowlingDB ready · SQLite ${info.version}`;
-          return info;
-        }).catch(error => {
+        databaseReadyPromise = (async () => {
+          let lastError;
+          for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+              const info = await dbCall('init');
+              dbReady = true;
+              dbStatus.textContent = `BowlingDB ready · SQLite ${info.version}`;
+              return info;
+            } catch (error) {
+              lastError = error;
+              const transient = /Access Handles cannot be created|another open Access Handle|Writable stream associated with the same file|createSyncAccessHandle|database is not initialized/i.test(String(error && error.message));
+              if (!transient || attempt === 4) break;
+              await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+            }
+          }
           databaseReadyPromise = null;
-          throw error;
-        });
+          throw lastError || new Error('Unable to initialize BowlingDB.');
+        })();
       }
       return databaseReadyPromise;
     }

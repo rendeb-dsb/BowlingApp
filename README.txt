@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 45 (b1v45)
+Bowling PWA — Build 1 Version 45 (b1v46)
 
 Changes in this version
 - Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
@@ -212,13 +212,18 @@ Version 43 correction
 - Fixed Change Team Member so it reloads the available-bowler list after restoring the selected team. The current bowler is included and selected, and the Bowler dropdown remains enabled for changes.
 
 
-Changes in b1v45
+Changes in b1v46
 - Screen navigation waits for one shared database initialization promise, avoiding early menu taps racing database startup.
 - SQLite worker retries transient OPFS SyncAccessHandle conflicts after cleanup.
 - Score entry requests the mobile keyboard Next action and explicitly handles its Enter key to follow the selected tab order.
 
 
-Changes in b1v45
+Changes in b1v46
 - Screen navigation waits for one shared database initialization promise, avoiding early menu taps racing database startup.
 - SQLite worker retries transient OPFS SyncAccessHandle conflicts after cleanup.
 - Score entry requests the mobile keyboard Next action and explicitly handles its Enter key to follow the selected navigation order.
+
+
+Additional b1v46 corrections
+- Score entry uses a text field with a numeric mobile keyboard so the keyboard Next action can be intercepted consistently. Explicit tabindex order is recalculated for the selected navigation setting.
+- Database initialization now retries transient OPFS access-handle conflicts with longer backoff in both the worker and the app startup path. Settings waits for database initialization before querying missing Order values.
