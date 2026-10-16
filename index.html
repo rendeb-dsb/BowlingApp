@@ -133,7 +133,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v41</div>
+    <div class="version">b1v42</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -170,7 +170,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v41</strong></p>
+      <p>Application version: <strong>b1v42</strong></p>
       <div class="status-note" id="orderSetupStatus">Checking team and team-member ordering…</div>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
@@ -340,7 +340,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v41</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v42</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1187,7 +1187,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v41', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v42', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 41 (b1v41)
+Bowling PWA — Build 1 Version 41 (b1v42)
 
 Changes in this version
 - Adds optional positive-integer Order fields to Teams and TeamMembers; existing databases gain these columns in place without deleting records.
