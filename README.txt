@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 45 (b1v46)
+Bowling PWA — Build 1 Version 47 (b1v47)
 
 Changes in this version
 - Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
@@ -227,3 +227,9 @@ Changes in b1v46
 Additional b1v46 corrections
 - Score entry uses a text field with a numeric mobile keyboard so the keyboard Next action can be intercepted consistently. Explicit tabindex order is recalculated for the selected navigation setting.
 - Database initialization now retries transient OPFS access-handle conflicts with longer backoff in both the worker and the app startup path. Settings waits for database initialization before querying missing Order values.
+
+
+Changes in b1v47
+- Opening Scores focuses and selects the contents of Game 1 for the first bowler.
+- Draft recovery now compares a saved local draft against scores currently stored in the database. A draft that matches saved scores is treated as stale and removed without prompting.
+- Drafts are retained only when their values differ from the database, including clearing a previously saved score.

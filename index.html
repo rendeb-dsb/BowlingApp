@@ -136,7 +136,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v46</div>
+    <div class="version">b1v47</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -173,7 +173,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v46</strong></p>
+      <p>Application version: <strong>b1v47</strong></p>
       <p><strong>Score entry Next-button order</strong></p>
       <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
         <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
@@ -348,7 +348,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v46</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v47</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1035,6 +1035,7 @@
     let scoreBowlers = [];
     let scoreGameCount = 0;
     let savedScoreMap = {};
+    let persistedScoreMap = {};
     let scoreDraftKey = '';
     let scoreBusy = false;
     function scoreDraftData() {
@@ -1045,9 +1046,24 @@
       });
       return { matchId: activeScoreMatch, gameCount: scoreGameCount, values };
     }
+    function scoreValuesDifferFromSaved(values) {
+      for (const [key, rawValue] of Object.entries(values || {})) {
+        const value = String(rawValue ?? '').trim();
+        const hasSaved = Object.prototype.hasOwnProperty.call(persistedScoreMap, key);
+        const saved = hasSaved ? String(persistedScoreMap[key]) : '';
+        // Empty draft cells are meaningful only when they clear a previously saved score.
+        if (value !== '' && (!hasSaved || value !== saved)) return true;
+        if (value === '' && hasSaved) return true;
+      }
+      return false;
+    }
     function preserveScoreDraft() {
       if (!activeScoreMatch || !scoreDraftKey) return;
-      try { localStorage.setItem(scoreDraftKey, JSON.stringify(scoreDraftData())); } catch (_) {}
+      try {
+        const draft = scoreDraftData();
+        if (scoreValuesDifferFromSaved(draft.values)) localStorage.setItem(scoreDraftKey, JSON.stringify(draft));
+        else localStorage.removeItem(scoreDraftKey);
+      } catch (_) {}
     }
     function scoreInputHtml(bowler, game) {
       const key = `${game}:${bowler.BowlerId}`;
@@ -1109,7 +1125,11 @@
       applyScoreTabIndexOrder();
       document.getElementById('nextGameButton').style.display = activeScoreMatchType === 'P' ? '' : 'none';
       document.getElementById('scoresStatus').textContent = `${scoreBowlers.length} bowlers · ${scoreGameCount} game${scoreGameCount === 1 ? '' : 's'} · ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
-      if (focusGame !== null) { const first = document.querySelector(`#scoresTableWrap input[data-game="${focusGame}"]`); if (first) setTimeout(() => first.focus(), 100); }
+      if (focusGame !== null) {
+        const firstBowlerId = scoreBowlers.length ? Number(scoreBowlers[0].BowlerId) : null;
+        const first = firstBowlerId === null ? null : document.querySelector(`#scoresTableWrap input[data-game="${focusGame}"][data-bowler="${firstBowlerId}"]`);
+        if (first) setTimeout(() => { first.focus(); try { first.select(); } catch (_) {} }, 150);
+      }
     }
     function setScoresMessage(message) {
       const el = document.getElementById('scoresMessage'); el.textContent = message; el.classList.toggle('show', !!message);
@@ -1131,13 +1151,21 @@
         const records = await dbCall('listScores', { MatchId: matchId });
         savedScoreMap = {};
         records.forEach(row => savedScoreMap[`${Number(row.GameNbr)}:${Number(row.BowlerId)}`] = String(row.Score));
+        persistedScoreMap = { ...savedScoreMap };
         scoreGameCount = Math.max(activeScoreMatchType === 'M' ? 3 : 1, ...records.map(row => Number(row.GameNbr)), 1);
         scoreDraftKey = `bowling-score-draft-${matchId}`;
         try {
           const draft = JSON.parse(localStorage.getItem(scoreDraftKey) || 'null');
-          if (draft && draft.matchId === matchId && draft.values && confirm('A recoverable unsaved score draft exists for this match. Restore it?')) {
-            scoreGameCount = Math.max(scoreGameCount, Number(draft.gameCount) || 1);
-            savedScoreMap = { ...savedScoreMap, ...draft.values };
+          if (draft && draft.matchId === matchId && draft.values) {
+            if (scoreValuesDifferFromSaved(draft.values)) {
+              if (confirm('A recoverable unsaved score draft exists for this match. Restore it?')) {
+                scoreGameCount = Math.max(scoreGameCount, Number(draft.gameCount) || 1);
+                savedScoreMap = { ...savedScoreMap, ...draft.values };
+              }
+            } else {
+              // This draft matches the database; it is stale, not unsaved work.
+              localStorage.removeItem(scoreDraftKey);
+            }
           }
         } catch (_) {}
         if (activeScoreMatchType === 'M') scoreGameCount = 3;
@@ -1241,7 +1269,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v46', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v47', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
