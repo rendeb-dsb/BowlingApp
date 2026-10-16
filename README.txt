@@ -1,6 +1,9 @@
-Bowling PWA — Build 1 Version 43 (b1v43)
+Bowling PWA — Build 1 Version 44 (b1v44)
 
 Changes in this version
+- Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
+- Settings includes two score-entry Next-button navigation choices: “Tab right-to-left, top-to-bottom” (default) and “Tab top-to-bottom, right-to-left”. The selection persists across sessions using localStorage.
+- The numeric keypad Next/Enter action follows the selected navigation order and focuses Save after the final score. Existing scores are selected on focus where the browser supports selecting number-input contents.
 - Adds optional positive-integer Order fields to Teams and TeamMembers; existing databases gain these columns in place without deleting records.
 - Team Member Order inserts shift existing assigned members at or after that position down one position.
 - Settings lists Teams and Team Members that have no Order value.

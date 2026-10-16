@@ -121,8 +121,11 @@
     .score-grid th, .score-grid td { padding: 6px; box-sizing: border-box; }
     .score-grid th:first-child, .score-grid td:first-child { width: 145px; min-width: 145px; max-width: 145px; white-space: nowrap; position: sticky; left: 0; z-index: 2; background: #e7eef4; }
     .score-grid tbody td:first-child { background: #fff; }
-    .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 145px; min-width: 145px; max-width: 145px; }
-    .score-entry { width: 74px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 5px; font-size: 16px; }
+    .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 72.5px; min-width: 72.5px; max-width: 72.5px; }
+    .score-entry { width: 49px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 4px; font-size: 16px; }
+    .score-tab-options { display:flex; flex-direction:column; gap:10px; margin:12px 0 18px; }
+    .score-tab-options label { display:flex; align-items:flex-start; gap:10px; line-height:1.4; cursor:pointer; }
+    .score-tab-options input[type="radio"] { margin:3px 0 0; width:18px; height:18px; flex:0 0 auto; accent-color:var(--navy); }
     #scoresTableWrap { overflow-x: auto; position: relative; }
   
     .match-select-cell { width:42px; min-width:42px; max-width:42px; text-align:center; }
@@ -133,7 +136,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v43</div>
+    <div class="version">b1v44</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -170,7 +173,12 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v43</strong></p>
+      <p>Application version: <strong>b1v44</strong></p>
+      <p><strong>Score entry Next-button order</strong></p>
+      <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
+        <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
+        <label><input type="radio" name="scoreTabOrder" id="scoreTabColumnFirst" value="column-first"> <span>Tab top-to-bottom, right-to-left</span></label>
+      </div>
       <div class="status-note" id="orderSetupStatus">Checking team and team-member ordering…</div>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
@@ -340,7 +348,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v43</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v44</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1056,18 +1064,35 @@
       document.getElementById('scoresTableWrap').innerHTML = `<div class="lane-list-wrap"><table class="lane-list score-grid" aria-label="Bowling scores"><thead><tr><th>Bowler</th>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
       document.querySelectorAll('#scoresTableWrap input').forEach(input => {
         input.addEventListener('input', preserveScoreDraft);
+        input.addEventListener('focus', () => {
+          // Select an existing score when possible so it can be replaced immediately.
+          try { input.select(); } catch (_) {}
+        });
         input.addEventListener('keydown', event => {
+          // Android's numeric keypad Next action is commonly delivered as Enter.
           if (event.key !== 'Enter' && event.key !== 'NumpadEnter') return;
           event.preventDefault();
           const currentGame = Number(input.dataset.game);
           const currentBowlerIndex = scoreBowlers.findIndex(b => Number(b.BowlerId) === Number(input.dataset.bowler));
+          const firstMode = document.querySelector('input[name="scoreTabOrder"]:checked')?.value || 'row-first';
           let nextInput = null;
-          if (currentBowlerIndex >= 0 && currentBowlerIndex < scoreBowlers.length - 1) {
-            const nextBowler = scoreBowlers[currentBowlerIndex + 1];
-            nextInput = document.querySelector(`#scoresTableWrap input[data-game="${currentGame}"][data-bowler="${Number(nextBowler.BowlerId)}"]`);
-          } else if (currentGame < scoreGameCount) {
-            const firstBowler = scoreBowlers[0];
-            nextInput = document.querySelector(`#scoresTableWrap input[data-game="${currentGame + 1}"][data-bowler="${Number(firstBowler.BowlerId)}"]`);
+          if (firstMode === 'row-first') {
+            // Across games for this bowler, then Game 1 for the next bowler.
+            if (currentGame < scoreGameCount) {
+              nextInput = document.querySelector(`#scoresTableWrap input[data-game="${currentGame + 1}"][data-bowler="${Number(input.dataset.bowler)}"]`);
+            } else if (currentBowlerIndex >= 0 && currentBowlerIndex < scoreBowlers.length - 1) {
+              const nextBowler = scoreBowlers[currentBowlerIndex + 1];
+              nextInput = document.querySelector(`#scoresTableWrap input[data-game="1"][data-bowler="${Number(nextBowler.BowlerId)}"]`);
+            }
+          } else {
+            // Down the current game column, then the next game column.
+            if (currentBowlerIndex >= 0 && currentBowlerIndex < scoreBowlers.length - 1) {
+              const nextBowler = scoreBowlers[currentBowlerIndex + 1];
+              nextInput = document.querySelector(`#scoresTableWrap input[data-game="${currentGame}"][data-bowler="${Number(nextBowler.BowlerId)}"]`);
+            } else if (currentGame < scoreGameCount) {
+              const firstBowler = scoreBowlers[0];
+              nextInput = document.querySelector(`#scoresTableWrap input[data-game="${currentGame + 1}"][data-bowler="${Number(firstBowler.BowlerId)}"]`);
+            }
           }
           if (nextInput) nextInput.focus(); else document.getElementById('saveScoresButton').focus();
         });
@@ -1148,6 +1173,19 @@
       const open = actionsMenu.classList.toggle('open');
       actionsButton.setAttribute('aria-expanded', String(open));
     });
+    const scoreTabOrderKey = 'bowling-score-tab-order';
+    const scoreTabOrderRadios = document.querySelectorAll('input[name="scoreTabOrder"]');
+    try {
+      const savedTabOrder = localStorage.getItem(scoreTabOrderKey);
+      if (savedTabOrder === 'row-first' || savedTabOrder === 'column-first') {
+        const savedRadio = document.querySelector(`input[name="scoreTabOrder"][value="${savedTabOrder}"]`);
+        if (savedRadio) savedRadio.checked = true;
+      }
+    } catch (_) {}
+    scoreTabOrderRadios.forEach(radio => radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      try { localStorage.setItem(scoreTabOrderKey, radio.value); } catch (_) {}
+    }));
     settingsButton.addEventListener('click', showSettings);
     document.getElementById('homeButton').addEventListener('click', showHome);
     lanesButton.addEventListener('click', showLanesList);
@@ -1192,7 +1230,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v43', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v44', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
