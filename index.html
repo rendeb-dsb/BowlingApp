@@ -35,6 +35,12 @@
     .settings-panel { display:none; width:min(680px, 94%); background:white; border:1px solid var(--line); border-radius:12px; padding:24px; box-shadow:0 4px 18px #16324f12; }
     .settings-panel h2 { margin:0 0 12px; color:var(--navy); font-size:22px; }
     .settings-panel p { margin:8px 0; line-height:1.5; }
+    .score-order-panel { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px; border:1px solid #000; background:#e7f3fc; border-radius:5px; margin:12px 0 16px; }
+    .score-order-panel-main { min-width:0; flex:1; }
+    .score-order-panel-main p { margin:0 0 10px; }
+    .scores-return-button { flex:0 0 auto; min-width:76px; min-height:48px; padding:9px 13px; border:1px solid #000; border-radius:5px; background:#fff; color:var(--navy); font-size:16px; font-weight:700; cursor:pointer; }
+    .scores-return-button:active { background:#d6e8f6; }
+    @media (max-width:480px) { .score-order-panel { gap:8px; padding:10px; } .scores-return-button { min-width:66px; padding:8px; } }
     .status-note { margin-top:18px; padding:12px; border-left:4px solid var(--blue); background:#eef6fb; border-radius:4px; }
     .footer { font-size:11px; color:#526577; text-align:center; padding:5px 8px max(5px, env(safe-area-inset-bottom)); }
 
@@ -140,7 +146,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v52</div>
+    <div class="version">b1v54</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -177,11 +183,16 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v52</strong></p>
-      <p><strong>Score entry Next-button order</strong></p>
-      <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
-        <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
-        <label><input type="radio" name="scoreTabOrder" id="scoreTabColumnFirst" value="column-first"> <span>Tab top-to-bottom, right-to-left</span></label>
+      <p>Application version: <strong>b1v54</strong></p>
+      <div class="score-order-panel" id="scoreOrderPanel">
+        <div class="score-order-panel-main">
+          <p><strong>Score entry Next-button order</strong></p>
+          <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
+            <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
+            <label><input type="radio" name="scoreTabOrder" id="scoreTabColumnFirst" value="column-first"> <span>Tab top-to-bottom, right-to-left</span></label>
+          </div>
+        </div>
+        <button class="scores-return-button" id="returnToScoresButton" type="button">Scores</button>
       </div>
       <div class="status-note" id="orderSetupStatus">Checking team and team-member ordering…</div>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
@@ -353,7 +364,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v52</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v54</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -471,8 +482,12 @@
       setMatchesActive(false); closeMenu();
     }
     async function showSettings() {
+      settingsReturnToScores = currentEntity === 'Scores' && !!activeScoreMatch;
+      if (settingsReturnToScores) preserveScoreDraft();
       hideScreens();
       settingsPanel.style.display = 'block';
+      document.getElementById('returnToScoresButton').style.display = '';
+      document.getElementById('returnToScoresButton').disabled = !settingsReturnToScores;
       const orderStatus = document.getElementById('orderSetupStatus');
       orderStatus.textContent = 'Checking team and team-member ordering…';
       try { await ensureDatabaseReady(); const missing = await dbCall('listMissingOrders'); orderStatus.innerHTML = missing.message; } catch (error) { orderStatus.textContent = 'Unable to check ordering: ' + error.message; }
@@ -1165,10 +1180,29 @@
       applyScoreTabIndexOrder();
       document.getElementById('nextGameButton').style.display = activeScoreMatchType === 'P' ? '' : 'none';
       document.getElementById('scoresStatus').textContent = `${scoreBowlers.length} bowlers · ${scoreGameCount} game${scoreGameCount === 1 ? '' : 's'} · ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
+      // Whenever the Scores screen is opened or restored, resume at the last
+      // populated cell in the user's selected Next-button traversal order.
+      // If no score exists yet, begin at Game 1 / bowler 1.
       if (focusGame !== null) {
-        const firstBowlerId = scoreBowlers.length ? Number(scoreBowlers[0].BowlerId) : null;
-        const first = firstBowlerId === null ? null : document.querySelector(`#scoresTableWrap input[data-game="${focusGame}"][data-bowler="${firstBowlerId}"]`);
-        if (first) setTimeout(() => { first.focus(); try { first.select(); } catch (_) {} }, 150);
+        setTimeout(() => focusLastScoreCell(), 180);
+      }
+    }
+    function focusLastScoreCell() {
+      const inputs = [...document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]')];
+      if (!inputs.length) return;
+      const mode = document.querySelector('input[name="scoreTabOrder"]:checked')?.value || 'row-first';
+      const bowlerIndex = id => scoreBowlers.findIndex(b => Number(b.BowlerId) === Number(id));
+      const traversal = inputs.sort((a, b) => mode === 'column-first'
+        ? (Number(a.dataset.game) - Number(b.dataset.game)) || (bowlerIndex(a.dataset.bowler) - bowlerIndex(b.dataset.bowler))
+        : (bowlerIndex(a.dataset.bowler) - bowlerIndex(b.dataset.bowler)) || (Number(a.dataset.game) - Number(b.dataset.game)));
+      let target = null;
+      for (const input of traversal) {
+        if (String(input.value).trim() !== '') target = input;
+      }
+      if (!target) target = traversal[0];
+      if (target) {
+        target.focus({ preventScroll: false });
+        try { target.select(); } catch (_) {}
       }
     }
     function setScoresMessage(message) {
@@ -1252,6 +1286,7 @@
       actionsButton.setAttribute('aria-expanded', String(open));
     });
     const scoreTabOrderKey = 'bowling-score-tab-order';
+    let settingsReturnToScores = false;
     const scoreTabOrderRadios = document.querySelectorAll('input[name="scoreTabOrder"]');
     try {
       const savedTabOrder = localStorage.getItem(scoreTabOrderKey);
@@ -1267,6 +1302,15 @@
     }));
     settingsButton.addEventListener('click', showSettings);
     document.getElementById('homeButton').addEventListener('click', showHome);
+    document.getElementById('returnToScoresButton').addEventListener('click', () => {
+      if (!settingsReturnToScores || !activeScoreMatch) return;
+      hideScreens();
+      scoresScreen.style.display = 'block';
+      currentEntity = 'Scores';
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
+      settingsReturnToScores = false;
+      renderScoreGrid(1);
+    });
     lanesButton.addEventListener('click', showLanesList);
     bowlersButton.addEventListener('click', showBowlersList);
     leaguesButton.addEventListener('click', showLeaguesList);
@@ -1310,7 +1354,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v52', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v54', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

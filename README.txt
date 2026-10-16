@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 50 (b1v52)
+Bowling PWA — Build 1 Version 54 (b1v54)
 
 Changes in this version
 - Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
@@ -229,32 +229,45 @@ Additional b1v46 corrections
 - Database initialization now retries transient OPFS access-handle conflicts with longer backoff in both the worker and the app startup path. Settings waits for database initialization before querying missing Order values.
 
 
-Changes in b1v52
+Changes in b1v54
 - Opening Scores focuses and selects the contents of Game 1 for the first bowler.
 - Draft recovery now compares a saved local draft against scores currently stored in the database. A draft that matches saved scores is treated as stale and removed without prompting.
 - Drafts are retained only when their values differ from the database, including clearing a previously saved score.
 
 
-Changes in b1v52
+Changes in b1v54
 - Widened the Matches list Date column by 15 pixels.
 - Added a Show match type filter (Match by default, Practice, or All).
 - When saving Practice scores, all-zero games are treated as unused and not saved; previously saved all-zero Practice game records are removed. Remaining Practice games are renumbered consecutively.
 
 
-Changes in b1v52
+Changes in b1v54
 - Team Member form team and bowler dropdowns reduced to 180px wide.
 - Order field reduced to 28px wide.
 - Team choices show team name only, without league name.
 - Available bowler choices exclude bowlers already assigned to any team of the selected team type (Match or Practice); existing bowler remains available in Change mode.
 
 
-Changes in b1v52
+Changes in b1v54
 - Reduced the Matches list Date column width by one-third.
 - Moved Opponent Team before Our Team in the Matches list.
 - Match form team dropdowns display team names only, without league names.
 - Team choices are filtered to Match or Practice according to the selected Match Type; if the type is blank, all teams are available.
 
 
-Changes in b1v52
+Changes in b1v54
 - Fixed empty-list handling in Leagues, Teams, Team Members, and Bowlers. These screens no longer reference the Matches-only variable allMatches or filterType, which caused a ReferenceError when a list had no records.
 - Empty lists now display “No records to display.”; the Matches list retains its own match-type filtering behavior.
+
+
+Build 1 Version 53 (b1v54)
+- Added a light-blue, black-bordered Score entry Next-button order panel in Settings.
+- Added a Scores button that returns to the score-entry screen opened before Settings and selects the first score cell (Game 1, first bowler).
+- Preserves the current score values and recoverable draft when opening Settings.
+
+
+Changes in b1v54
+- Settings' score-entry order controls are in a dedicated light-blue, black-bordered panel with a Scores button. The button is available on Settings and is enabled when Settings was opened from an active Scores screen.
+- Returning from Settings restores the active Scores screen and selects the last nonblank score cell according to the selected Next-button traversal order, so it can be replaced immediately.
+- Whenever Scores is opened, it scans the score-entry cells in the selected traversal order and focuses/selects the last cell containing a value; if no values exist, it focuses Game 1 for the first bowler. This also requests the mobile numeric keypad.
+- Updated service-worker cache and SQLite worker URL versions to b1v54.
