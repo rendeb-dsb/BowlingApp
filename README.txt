@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 47 (b1v48)
+Bowling PWA — Build 1 Version 49 (b1v49)
 
 Changes in this version
 - Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
@@ -239,3 +239,10 @@ Changes in b1v48
 - Widened the Matches list Date column by 15 pixels.
 - Added a Show match type filter (Match by default, Practice, or All).
 - When saving Practice scores, all-zero games are treated as unused and not saved; previously saved all-zero Practice game records are removed. Remaining Practice games are renumbered consecutively.
+
+
+Changes in b1v49
+- Added an animated spinning wait indicator while BowlingDB is opening and list records are being loaded.
+- Removed the misleading initial “No records to display” placeholder while a database request is still pending.
+- Shows a clear load error in the list area if database initialization or retrieval fails.
+- Kept the existing SQLite/OPFS database and data model unchanged.
