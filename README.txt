@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 41 (b1v42)
+Bowling PWA — Build 1 Version 43 (b1v43)
 
 Changes in this version
 - Adds optional positive-integer Order fields to Teams and TeamMembers; existing databases gain these columns in place without deleting records.
@@ -203,3 +203,7 @@ Changes in b1v40
 - Existing match values, including lanes, temperature, humidity, type, location, league, and teams, are loaded for editing.
 - Save validates required values, date, distinct teams, lane length, and positive integer temperature/humidity before updating the existing row.
 - SQLite worker supports reading and updating match records without replacing their MatchId or deleting related scores.
+
+
+Version 43 correction
+- Fixed Change Team Member so it reloads the available-bowler list after restoring the selected team. The current bowler is included and selected, and the Bowler dropdown remains enabled for changes.

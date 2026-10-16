@@ -133,7 +133,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v42</div>
+    <div class="version">b1v43</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -170,7 +170,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v42</strong></p>
+      <p>Application version: <strong>b1v43</strong></p>
       <div class="status-note" id="orderSetupStatus">Checking team and team-member ordering…</div>
       <button class="menu-button" id="homeButton" style="border:1px solid #b7cad9;margin-top:10px;">Return to Home</button>
     </section>
@@ -340,7 +340,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v42</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v43</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -786,7 +786,8 @@
       teamSelect.innerHTML = '<option value="">Select a team</option>' + teams.map(x => `<option value="${Number(x.TeamId)}">${escapeHtml(x.Name)} — ${escapeHtml(x.LeagueName)}</option>`).join('');
       teamSelect.value = teamId ? String(teamId) : '';
       teamSelect.disabled = !teams.length || editingTeamMember !== null;
-      bowlerSelect.disabled = editingTeamMember !== null;
+      // The Bowler field remains editable in Change mode; the current bowler
+      // is included in the choices so the saved value can be displayed.
       await refreshAvailableTeamMemberBowlers(bowlerId);
       if (!teams.length) showTeamMemberFormMessage('An active team is required. Add or activate a team first.');
       else clearTeamMemberFormMessage();
@@ -797,7 +798,7 @@
       const teamId = Number(teamSelect.value || 0);
       bowlerSelect.innerHTML = '<option value="">Select a bowler</option>';
       if (!teamId) {
-        bowlerSelect.disabled = editingTeamMember !== null;
+        bowlerSelect.disabled = true;
         showTeamMemberFormMessage('Select a team to see its available bowlers.');
         return;
       }
@@ -808,7 +809,9 @@
       });
       bowlerSelect.innerHTML = '<option value="">Select a bowler</option>' + bowlers.map(x => `<option value="${Number(x.BowlerId)}">${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}</option>`).join('');
       bowlerSelect.value = selectedBowlerId && [...bowlerSelect.options].some(option => option.value === String(selectedBowlerId)) ? String(selectedBowlerId) : '';
-      bowlerSelect.disabled = editingTeamMember !== null || !bowlers.length;
+      // In Change mode, includeBowlerId makes the existing member available
+      // alongside other unassigned bowlers, and the dropdown must be enabled.
+      bowlerSelect.disabled = !bowlers.length;
       if (!bowlers.length) showTeamMemberFormMessage('No unassigned active bowlers are available for this team.');
       else clearTeamMemberFormMessage();
     }
@@ -830,7 +833,9 @@
       editingTeamMember = { TeamId: teamId, BowlerId: bowlerId };
       await prepareTeamMemberForm('change');
       document.getElementById('teamMemberTeamId').value = String(teamId);
-      document.getElementById('teamMemberBowlerId').value = String(bowlerId);
+      // Populate the bowler list only after restoring the selected team. The
+      // existing bowler is explicitly included, then selected in the dropdown.
+      await refreshAvailableTeamMemberBowlers(String(bowlerId));
       const existingMember = await dbCall('getTeamMember', { TeamId: teamId, BowlerId: bowlerId });
       document.getElementById('teamMemberOrder').value = existingMember?.Order ?? '';
     }
@@ -1187,7 +1192,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v42', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v43', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
