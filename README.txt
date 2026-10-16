@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 49 (b1v49)
+Bowling PWA — Build 1 Version 50 (b1v50)
 
 Changes in this version
 - Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
@@ -229,20 +229,20 @@ Additional b1v46 corrections
 - Database initialization now retries transient OPFS access-handle conflicts with longer backoff in both the worker and the app startup path. Settings waits for database initialization before querying missing Order values.
 
 
-Changes in b1v48
+Changes in b1v50
 - Opening Scores focuses and selects the contents of Game 1 for the first bowler.
 - Draft recovery now compares a saved local draft against scores currently stored in the database. A draft that matches saved scores is treated as stale and removed without prompting.
 - Drafts are retained only when their values differ from the database, including clearing a previously saved score.
 
 
-Changes in b1v48
+Changes in b1v50
 - Widened the Matches list Date column by 15 pixels.
 - Added a Show match type filter (Match by default, Practice, or All).
 - When saving Practice scores, all-zero games are treated as unused and not saved; previously saved all-zero Practice game records are removed. Remaining Practice games are renumbered consecutively.
 
 
-Changes in b1v49
-- Added an animated spinning wait indicator while BowlingDB is opening and list records are being loaded.
-- Removed the misleading initial “No records to display” placeholder while a database request is still pending.
-- Shows a clear load error in the list area if database initialization or retrieval fails.
-- Kept the existing SQLite/OPFS database and data model unchanged.
+Changes in b1v50
+- Team Member form team and bowler dropdowns reduced to 180px wide.
+- Order field reduced to 28px wide.
+- Team choices show team name only, without league name.
+- Available bowler choices exclude bowlers already assigned to any team of the selected team type (Match or Practice); existing bowler remains available in Change mode.

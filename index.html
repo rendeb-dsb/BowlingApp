@@ -44,10 +44,6 @@
     #displayArea { align-items:stretch; justify-content:flex-start; }
     .lanes-empty { width:100%; text-align:center; padding:28px 12px; color:#33495b; }
     .db-status { margin:0 0 10px; font-size:13px; color:#526577; }
-    .db-loading { display:flex; align-items:center; justify-content:center; gap:12px; min-height:110px; padding:24px 12px; color:#526577; text-align:center; }
-    .db-spinner { width:28px; height:28px; flex:0 0 28px; border:4px solid #cbd8e2; border-top-color:var(--blue); border-radius:50%; animation:db-spin .8s linear infinite; }
-    @keyframes db-spin { to { transform:rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .db-spinner { animation-duration:2s; } }
     .form-message { display:none; margin:0 0 12px; padding:9px 11px; border-radius:4px; background:#fff0ee; color:#8b1e16; border:1px solid #e4aaa5; font-size:14px; }
     .form-message.show { display:block; }
     .lanes-table-wrap { width:100%; overflow:auto; }
@@ -144,7 +140,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v49</div>
+    <div class="version">b1v50</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -181,7 +177,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v49</strong></p>
+      <p>Application version: <strong>b1v50</strong></p>
       <p><strong>Score entry Next-button order</strong></p>
       <div class="score-tab-options" role="radiogroup" aria-label="Score entry Next-button order">
         <label><input type="radio" name="scoreTabOrder" id="scoreTabRowFirst" value="row-first" checked> <span>Tab right-to-left, top-to-bottom</span></label>
@@ -192,7 +188,7 @@
     </section>
     <section class="display-screen" id="lanesListScreen" aria-label="Lanes list">
       <div class="db-status" id="dbStatus">Opening BowlingDB…</div>
-      <div id="lanesListContent"><div class="db-loading" role="status"><span class="db-spinner" aria-hidden="true"></span><span>Opening BowlingDB and loading records…</span></div></div>
+      <div id="lanesListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="addLaneScreen" aria-label="Add Lanes Management">
       <div class="screen-titlebar">
@@ -246,7 +242,7 @@
     </section>
     <section class="display-screen" id="bowlersListScreen" aria-label="Bowlers list">
       <div class="db-status" id="bowlersDbStatus">Opening BowlingDB…</div>
-      <div id="bowlersListContent"><div class="db-loading" role="status"><span class="db-spinner" aria-hidden="true"></span><span>Opening BowlingDB and loading records…</span></div></div>
+      <div id="bowlersListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="bowlerFormScreen" aria-label="Bowlers Management">
       <div class="screen-titlebar">
@@ -264,7 +260,7 @@
     </section>
     <section class="display-screen" id="leaguesListScreen" aria-label="Leagues list">
       <div class="db-status" id="leaguesDbStatus">Opening BowlingDB…</div>
-      <div id="leaguesListContent"><div class="db-loading" role="status"><span class="db-spinner" aria-hidden="true"></span><span>Opening BowlingDB and loading records…</span></div></div>
+      <div id="leaguesListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="leagueFormScreen" aria-label="League Management">
       <div class="screen-titlebar"><h2 id="leagueFormTitle">Add League Management</h2><div class="title-actions"><button class="action-button primary" id="saveLeagueButton" type="button">Save</button><button class="action-button" id="cancelLeagueButton" type="button">Cancel</button></div></div>
@@ -281,7 +277,7 @@
     </section>
     <section class="display-screen" id="teamsListScreen" aria-label="Teams list">
       <div class="db-status" id="teamsDbStatus">Opening BowlingDB…</div>
-      <div id="teamsListContent"><div class="db-loading" role="status"><span class="db-spinner" aria-hidden="true"></span><span>Opening BowlingDB and loading records…</span></div></div>
+      <div id="teamsListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="teamFormScreen" aria-label="Team Management">
       <div class="screen-titlebar"><h2 id="teamFormTitle">Add Team Management</h2><div class="title-actions"><button class="action-button primary" id="saveTeamButton" type="button">Save</button><button class="action-button" id="cancelTeamButton" type="button">Cancel</button></div></div>
@@ -305,16 +301,16 @@
           <option value="-1">All</option>
         </select>
       </div>
-      <div id="teamMembersListContent"><div class="db-loading" role="status"><span class="db-spinner" aria-hidden="true"></span><span>Opening BowlingDB and loading records…</span></div></div>
+      <div id="teamMembersListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="teamMemberFormScreen" aria-label="Team Member Management">
       <div class="screen-titlebar"><h2 id="teamMemberFormTitle">Add Team Member</h2><div class="title-actions"><button class="action-button primary" id="saveTeamMemberButton" type="button">Save</button><button class="action-button" id="cancelTeamMemberButton" type="button">Cancel</button></div></div>
       <div class="form-message" id="teamMemberFormMessage" role="alert"></div>
       <form class="lane-form" id="teamMemberForm" autocomplete="off">
         <table class="lane-fields" aria-label="Team member details"><tbody>
-          <tr><td class="label-cell"><label for="teamMemberTeamId">Team:</label></td><td class="control-cell"><select id="teamMemberTeamId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a team</option></select></td></tr>
-          <tr><td class="label-cell"><label for="teamMemberBowlerId">Bowler:</label></td><td class="control-cell"><select id="teamMemberBowlerId" required style="min-height:34px;max-width:100%;width:min(100%,360px);padding:5px 8px;"><option value="">Select a bowler</option></select></td></tr>
-          <tr><td class="label-cell"><label for="teamMemberOrder">Order:</label></td><td class="control-cell"><input id="teamMemberOrder" type="number" min="1" step="1" inputmode="numeric" style="width:110px;max-width:100%;" aria-label="Team member order"></td></tr>
+          <tr><td class="label-cell"><label for="teamMemberTeamId">Team:</label></td><td class="control-cell"><select id="teamMemberTeamId" required style="min-height:34px;max-width:100%;width:180px;padding:5px 8px;"><option value="">Select a team</option></select></td></tr>
+          <tr><td class="label-cell"><label for="teamMemberBowlerId">Bowler:</label></td><td class="control-cell"><select id="teamMemberBowlerId" required style="min-height:34px;max-width:100%;width:180px;padding:5px 8px;"><option value="">Select a bowler</option></select></td></tr>
+          <tr><td class="label-cell"><label for="teamMemberOrder">Order:</label></td><td class="control-cell"><input id="teamMemberOrder" type="number" min="1" step="1" inputmode="numeric" style="width:28px;max-width:100%;" aria-label="Team member order"></td></tr>
         </tbody></table>
         <p class="list-note">Only active teams and active bowlers are available. A bowler can be assigned to a particular team only once.</p>
       </form>
@@ -322,7 +318,7 @@
     <section class="display-screen" id="matchesListScreen" aria-label="Matches list">
       <div class="db-status" id="matchesDbStatus">Opening BowlingDB…</div>
       <div class="matches-filter"><label for="showMatchType">Show match type:</label><select id="showMatchType"><option value="A">All</option><option value="M" selected>Match</option><option value="P">Practice</option></select></div>
-      <div id="matchesListContent"><div class="db-loading" role="status"><span class="db-spinner" aria-hidden="true"></span><span>Opening BowlingDB and loading records…</span></div></div>
+      <div id="matchesListContent"><div class="lanes-empty">No records to display.</div></div>
     </section>
     <section class="display-screen" id="matchFormScreen" aria-label="Match Management">
       <div class="screen-titlebar"><h2 id="matchFormTitle">Add Match</h2><div class="title-actions"><button class="action-button primary" id="saveMatchButton" type="button">Save</button><button class="action-button" id="cancelMatchButton" type="button">Cancel</button></div></div>
@@ -357,7 +353,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v49</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v50</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -491,9 +487,8 @@
       setLanesActive(true);
       setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false);
       setMatchesActive(false); closeMenu();
-      showDatabaseLoading('lanesListContent'); dbStatus.textContent = 'Opening BowlingDB…';
       try { await ensureDatabaseReady(); await refreshLanes(); }
-      catch (error) { dbStatus.textContent = 'Unable to read BowlingDB: ' + error.message; showDatabaseLoadError('lanesListContent', 'BowlingDB could not be loaded. ' + error.message); }
+      catch (error) { dbStatus.textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     function prepareLaneForm(mode) {
       editingLaneId = mode === 'change' ? editingLaneId : null;
@@ -567,8 +562,7 @@
     async function showBowlersList() {
       currentEntity = 'Bowlers'; hideScreens(); bowlersListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(false); closeMenu();
-      showDatabaseLoading('bowlersListContent'); document.getElementById('bowlersDbStatus').textContent = 'Opening BowlingDB…';
-      try { await ensureDatabaseReady(); await refreshBowlers(); } catch (error) { document.getElementById('bowlersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; showDatabaseLoadError('bowlersListContent', 'BowlingDB could not be loaded. ' + error.message); }
+      try { await ensureDatabaseReady(); await refreshBowlers(); } catch (error) { document.getElementById('bowlersDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     function prepareBowlerForm(mode) {
       hideScreens(); bowlerFormScreen.style.display = 'block'; setLanesActive(false); setBowlersActive(true); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); currentEntity = 'Bowlers'; setMatchesActive(false); closeMenu();
@@ -602,8 +596,7 @@
     async function showLeaguesList() {
       currentEntity = 'Leagues'; hideScreens(); leaguesListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setTeamsActive(false); setTeamMembersActive(false); setLeaguesActive(true); setMatchesActive(false); closeMenu();
-      showDatabaseLoading('leaguesListContent'); document.getElementById('leaguesDbStatus').textContent = 'Opening BowlingDB…';
-      try { await ensureDatabaseReady(); await refreshLeagues(); } catch (error) { document.getElementById('leaguesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; showDatabaseLoadError('leaguesListContent', 'BowlingDB could not be loaded. ' + error.message); }
+      try { await ensureDatabaseReady(); await refreshLeagues(); } catch (error) { document.getElementById('leaguesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     async function loadLeagueLocations(selectedLaneId = '') {
       const select = document.getElementById('leagueLocation');
@@ -687,8 +680,7 @@
     async function showTeamsList() {
       currentEntity = 'Teams'; hideScreens(); teamsListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamMembersActive(false); setTeamsActive(true); setMatchesActive(false); closeMenu();
-      showDatabaseLoading('teamsListContent'); document.getElementById('teamsDbStatus').textContent = 'Opening BowlingDB…';
-      try { await ensureDatabaseReady(); await refreshTeams(); } catch (error) { document.getElementById('teamsDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; showDatabaseLoadError('teamsListContent', 'BowlingDB could not be loaded. ' + error.message); }
+      try { await ensureDatabaseReady(); await refreshTeams(); } catch (error) { document.getElementById('teamsDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     async function loadTeamLeagues(selectedId = '') {
       const select = document.getElementById('teamLeagueId');
@@ -774,7 +766,7 @@
       currentEntity = 'TeamMembers'; hideScreens(); teamMembersListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setTeamMembersActive(true); setMatchesActive(false); closeMenu();
       const status = document.getElementById('teamMembersDbStatus');
-      status.textContent = 'Opening BowlingDB…'; showDatabaseLoading('teamMembersListContent');
+      status.textContent = 'Opening BowlingDB…';
       try {
         // The user can open this screen while the first database initialization
         // is still underway. Always await initialization rather than leaving the
@@ -786,7 +778,6 @@
         await refreshTeamMembers();
       } catch (error) {
         status.textContent = 'Unable to read BowlingDB: ' + error.message;
-        showDatabaseLoadError('teamMembersListContent', 'BowlingDB could not be loaded. ' + error.message);
         console.error('Team Members screen failed to load:', error);
       }
     }
@@ -803,7 +794,7 @@
       teams.sort((a, b) => Number(b.TeamId) - Number(a.TeamId));
       const teamSelect = document.getElementById('teamMemberTeamId');
       const bowlerSelect = document.getElementById('teamMemberBowlerId');
-      teamSelect.innerHTML = '<option value="">Select a team</option>' + teams.map(x => `<option value="${Number(x.TeamId)}">${escapeHtml(x.Name)} — ${escapeHtml(x.LeagueName)}</option>`).join('');
+      teamSelect.innerHTML = '<option value="">Select a team</option>' + teams.map(x => `<option value="${Number(x.TeamId)}">${escapeHtml(x.Name)}</option>`).join('');
       teamSelect.value = teamId ? String(teamId) : '';
       teamSelect.disabled = !teams.length || editingTeamMember !== null;
       // The Bowler field remains editable in Change mode; the current bowler
@@ -822,8 +813,10 @@
         showTeamMemberFormMessage('Select a team to see its available bowlers.');
         return;
       }
+      const selectedTeam = await dbCall('getTeam', { TeamId: teamId });
       const bowlers = await dbCall('listAvailableBowlersForTeam', {
         TeamId: teamId,
+        TeamType: selectedTeam?.TeamType || 'M',
         // When changing a membership, keep its current bowler selectable.
         includeBowlerId: editingTeamMember ? editingTeamMember.BowlerId : null
       });
@@ -912,9 +905,8 @@
     async function showMatchesList() {
       currentEntity = 'Matches'; hideScreens(); matchesListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
-      showDatabaseLoading('matchesListContent'); document.getElementById('matchesDbStatus').textContent = 'Opening BowlingDB…';
       try { await ensureDatabaseReady(); await refreshMatches(); }
-      catch (error) { document.getElementById('matchesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; showDatabaseLoadError('matchesListContent', 'BowlingDB could not be loaded. ' + error.message); }
+      catch (error) { document.getElementById('matchesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
     }
     let selectedMatchId = null;
     let editingMatchId = null;
@@ -1287,7 +1279,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v49', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v50', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -1343,14 +1335,6 @@
         })();
       }
       return databaseReadyPromise;
-    }
-    function showDatabaseLoading(contentId, message = 'Opening BowlingDB and loading records…') {
-      const content = document.getElementById(contentId);
-      if (content) content.innerHTML = `<div class="db-loading" role="status"><span class="db-spinner" aria-hidden="true"></span><span>${escapeHtml(message)}</span></div>`;
-    }
-    function showDatabaseLoadError(contentId, message) {
-      const content = document.getElementById(contentId);
-      if (content) content.innerHTML = `<div class="lanes-empty" role="alert">${escapeHtml(message)}</div>`;
     }
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -1572,7 +1556,6 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') { if (messageBackdrop.classList.contains('show')) closeAppMessage(); else setMatchesActive(false); closeMenu(); }
     });
-    showDatabaseLoading('lanesListContent');
     (async () => {
       try {
         const info = await ensureDatabaseReady();
@@ -1581,7 +1564,6 @@
         await refreshLanes();
       } catch (error) {
         dbStatus.textContent = 'BowlingDB could not be opened: ' + error.message;
-        showDatabaseLoadError('lanesListContent', 'BowlingDB could not be opened. ' + error.message);
         console.error('BowlingDB initialization failed:', error);
       }
     })();

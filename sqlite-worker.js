@@ -219,15 +219,28 @@ self.onmessage = async event => {
       db.exec({ sql: 'DELETE FROM Teams WHERE TeamId = ?', bind: [requestPayload.TeamId] });
       self.postMessage({ id, ok: true, data: { TeamId: requestPayload.TeamId, changes: db.changes() } });
     } else if (type === 'listActiveTeams') {
-      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId=Teams.LeagueId WHERE Teams.Active=1 ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
+      self.postMessage({ id, ok: true, data: rows('SELECT Teams.TeamId, Teams.Name, Teams.TeamType, Leagues.LeagueName FROM Teams JOIN Leagues ON Leagues.LeagueId=Teams.LeagueId WHERE Teams.Active=1 ORDER BY Teams.TeamType DESC, Teams.Name COLLATE NOCASE, Teams.TeamId') });
     } else if (type === 'listActiveBowlers') {
       self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
     } else if (type === 'listAvailableBowlersForTeam') {
       const teamId = Number(requestPayload.TeamId);
+      const teamType = requestPayload.TeamType === 'P' ? 'P' : 'M';
       const includeBowlerId = requestPayload.includeBowlerId == null ? null : Number(requestPayload.includeBowlerId);
+      // A bowler may belong to one team of each type, but cannot be assigned
+      // to multiple Match teams or multiple Practice teams. Keep the current
+      // bowler visible while changing an existing membership.
       const availableBowlers = rows(
-        'SELECT Bowlers.BowlerId, Bowlers.FirstName, Bowlers.LastName FROM Bowlers WHERE Bowlers.Active=1 AND (NOT EXISTS (SELECT 1 FROM TeamMembers WHERE TeamMembers.TeamId=? AND TeamMembers.BowlerId=Bowlers.BowlerId) OR Bowlers.BowlerId=?) ORDER BY Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId',
-        [teamId, includeBowlerId]
+        `SELECT Bowlers.BowlerId, Bowlers.FirstName, Bowlers.LastName
+         FROM Bowlers
+         WHERE Bowlers.Active=1
+           AND (Bowlers.BowlerId=? OR NOT EXISTS (
+             SELECT 1 FROM TeamMembers AS TM
+             JOIN Teams AS AssignedTeam ON AssignedTeam.TeamId=TM.TeamId
+             WHERE TM.BowlerId=Bowlers.BowlerId
+               AND AssignedTeam.TeamType=?
+           ))
+         ORDER BY Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`,
+        [includeBowlerId, teamType]
       );
       self.postMessage({ id, ok: true, data: availableBowlers });
     } else if (type === 'listMatches') {
