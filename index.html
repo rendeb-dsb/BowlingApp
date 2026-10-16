@@ -128,6 +128,8 @@
     .score-grid th:first-child, .score-grid td:first-child { width: 145px; min-width: 145px; max-width: 145px; white-space: nowrap; position: sticky; left: 0; z-index: 2; background: #e7eef4; }
     .score-grid tbody td:first-child { background: #fff; }
     .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 72.5px; min-width: 72.5px; max-width: 72.5px; }
+    .score-blind-cell { width: 34px; min-width: 34px; max-width: 34px; text-align:center; }
+    .score-blind-checkbox { width:16px; height:16px; margin:0; vertical-align:middle; accent-color:var(--navy); }
     .score-entry { width: 49px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 4px; font-size: 16px; }
     .score-tab-options { display:flex; flex-direction:column; gap:10px; margin:12px 0 18px; }
     .score-tab-options label { display:flex; align-items:flex-start; gap:10px; line-height:1.4; cursor:pointer; }
@@ -146,7 +148,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v54</div>
+    <div class="version">b1v55</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -183,7 +185,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v54</strong></p>
+      <p>Application version: <strong>b1v55</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -364,7 +366,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v54</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v55</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1091,17 +1093,21 @@
     let scoreGameCount = 0;
     let savedScoreMap = {};
     let persistedScoreMap = {};
+    let savedBlindMap = {};
+    let persistedBlindMap = {};
     let scoreDraftKey = '';
     let scoreBusy = false;
     function scoreDraftData() {
       const values = {};
+      const blind = {};
       document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]').forEach(input => {
         const key = `${input.dataset.game}:${input.dataset.bowler}`;
         values[key] = input.value;
       });
-      return { matchId: activeScoreMatch, gameCount: scoreGameCount, values };
+      document.querySelectorAll('#scoresTableWrap input[data-blind-bowler]').forEach(input => { blind[String(input.dataset.blindBowler)] = input.checked ? 'B' : null; });
+      return { matchId: activeScoreMatch, gameCount: scoreGameCount, values, blind };
     }
-    function scoreValuesDifferFromSaved(values) {
+    function scoreValuesDifferFromSaved(values, blind = {}) {
       for (const [key, rawValue] of Object.entries(values || {})) {
         const value = String(rawValue ?? '').trim();
         const hasSaved = Object.prototype.hasOwnProperty.call(persistedScoreMap, key);
@@ -1110,13 +1116,16 @@
         if (value !== '' && (!hasSaved || value !== saved)) return true;
         if (value === '' && hasSaved) return true;
       }
+      for (const [bowlerId, value] of Object.entries(blind || {})) {
+        if ((value === 'B' ? 'B' : null) !== (persistedBlindMap[bowlerId] || null)) return true;
+      }
       return false;
     }
     function preserveScoreDraft() {
       if (!activeScoreMatch || !scoreDraftKey) return;
       try {
         const draft = scoreDraftData();
-        if (scoreValuesDifferFromSaved(draft.values)) localStorage.setItem(scoreDraftKey, JSON.stringify(draft));
+        if (scoreValuesDifferFromSaved(draft.values, draft.blind)) localStorage.setItem(scoreDraftKey, JSON.stringify(draft));
         else localStorage.removeItem(scoreDraftKey);
       } catch (_) {}
     }
@@ -1139,9 +1148,10 @@
     }
     function renderScoreGrid(focusGame = null) {
       const headers = Array.from({length: scoreGameCount}, (_, i) => `<th>Game ${i+1}</th>`).join('');
-      const rowsHtml = scoreBowlers.map(bowler => `<tr><td>${escapeHtml(bowler.FullName)}</td>${Array.from({length: scoreGameCount}, (_, i) => scoreInputHtml(bowler, i+1)).join('')}</tr>`).join('');
-      document.getElementById('scoresTableWrap').innerHTML = `<div class="lane-list-wrap"><table class="lane-list score-grid" aria-label="Bowling scores"><thead><tr><th>Bowler</th>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
-      document.querySelectorAll('#scoresTableWrap input').forEach(input => {
+      const rowsHtml = scoreBowlers.map(bowler => { const blind = savedBlindMap[String(bowler.BowlerId)] === 'B' ? ' checked' : ''; return `<tr><td>${escapeHtml(bowler.FullName)}</td><td class="score-blind-cell"><input class="score-blind-checkbox" type="checkbox" data-blind-bowler="${Number(bowler.BowlerId)}" aria-label="Blind bowler: ${escapeHtml(bowler.FullName)}"${blind}></td>${Array.from({length: scoreGameCount}, (_, i) => scoreInputHtml(bowler, i+1)).join('')}</tr>`; }).join('');
+      document.getElementById('scoresTableWrap').innerHTML = `<div class="lane-list-wrap"><table class="lane-list score-grid" aria-label="Bowling scores"><thead><tr><th>Bowler</th><th class="score-blind-cell">B</th>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+      document.querySelectorAll('#scoresTableWrap input[data-blind-bowler]').forEach(input => input.addEventListener('change', () => { savedBlindMap[String(input.dataset.blindBowler)] = input.checked ? 'B' : null; preserveScoreDraft(); }));
+      document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]').forEach(input => {
         input.addEventListener('input', preserveScoreDraft);
         input.addEventListener('focus', () => {
           // Select an existing score when possible so it can be replaced immediately.
@@ -1224,17 +1234,20 @@
         scoreBowlers = bowlers;
         const records = await dbCall('listScores', { MatchId: matchId });
         savedScoreMap = {};
-        records.forEach(row => savedScoreMap[`${Number(row.GameNbr)}:${Number(row.BowlerId)}`] = String(row.Score));
+        savedBlindMap = {};
+        records.forEach(row => { savedScoreMap[`${Number(row.GameNbr)}:${Number(row.BowlerId)}`] = String(row.Score); if (row.Blind === 'B') savedBlindMap[String(row.BowlerId)] = 'B'; });
         persistedScoreMap = { ...savedScoreMap };
+        persistedBlindMap = { ...savedBlindMap };
         scoreGameCount = Math.max(activeScoreMatchType === 'M' ? 3 : 1, ...records.map(row => Number(row.GameNbr)), 1);
         scoreDraftKey = `bowling-score-draft-${matchId}`;
         try {
           const draft = JSON.parse(localStorage.getItem(scoreDraftKey) || 'null');
           if (draft && draft.matchId === matchId && draft.values) {
-            if (scoreValuesDifferFromSaved(draft.values)) {
+            if (scoreValuesDifferFromSaved(draft.values, draft.blind)) {
               if (confirm('A recoverable unsaved score draft exists for this match. Restore it?')) {
                 scoreGameCount = Math.max(scoreGameCount, Number(draft.gameCount) || 1);
                 savedScoreMap = { ...savedScoreMap, ...draft.values };
+                savedBlindMap = { ...savedBlindMap, ...(draft.blind || {}) };
               }
             } else {
               // This draft matches the database; it is stale, not unsaved work.
@@ -1266,7 +1279,8 @@
         if (raw === '' || !Number.isInteger(score) || score < 0 || score > 300) {
           setScoresMessage(`Every score must be a whole number from 0 through 300. Please check ${input.getAttribute('aria-label')}.`); input.focus(); return;
         }
-        values.push({ GameNbr: Number(input.dataset.game), BowlerId: Number(input.dataset.bowler), Score: score });
+        const blindCheckbox = document.querySelector(`#scoresTableWrap input[data-blind-bowler="${Number(input.dataset.bowler)}"]`);
+        values.push({ GameNbr: Number(input.dataset.game), BowlerId: Number(input.dataset.bowler), Score: score, Blind: blindCheckbox?.checked ? 'B' : null });
       }
       if (activeScoreMatchType === 'M' && scoreGameCount !== 3) return setScoresMessage('A Match must contain exactly three games.');
       if (values.length !== scoreBowlers.length * scoreGameCount) return setScoresMessage('Every bowler must have a score for every game.');
@@ -1354,7 +1368,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v54', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v55', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
