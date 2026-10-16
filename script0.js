@@ -998,7 +998,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v55', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v56', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

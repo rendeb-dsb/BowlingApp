@@ -50,7 +50,7 @@
     #displayArea { align-items:stretch; justify-content:flex-start; }
     .lanes-empty { width:100%; text-align:center; padding:28px 12px; color:#33495b; }
     .db-status { margin:0 0 10px; font-size:13px; color:#526577; }
-    .form-message { display:none; margin:0 0 12px; padding:9px 11px; border-radius:4px; background:#fff0ee; color:#8b1e16; border:1px solid #e4aaa5; font-size:14px; }
+    .form-message { white-space:pre-line; display:none; margin:0 0 12px; padding:9px 11px; border-radius:4px; background:#fff0ee; color:#8b1e16; border:1px solid #e4aaa5; font-size:14px; }
     .form-message.show { display:block; }
     .lanes-table-wrap { width:100%; overflow:auto; }
     .lane-list td { overflow-wrap:anywhere; }
@@ -128,7 +128,7 @@
     .score-grid th:first-child, .score-grid td:first-child { width: 145px; min-width: 145px; max-width: 145px; white-space: nowrap; position: sticky; left: 0; z-index: 2; background: #e7eef4; }
     .score-grid tbody td:first-child { background: #fff; }
     .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 72.5px; min-width: 72.5px; max-width: 72.5px; }
-    .score-blind-cell { width: 34px; min-width: 34px; max-width: 34px; text-align:center; }
+    .score-blind-cell { width: 17px; min-width: 17px; max-width: 17px; padding-left:2px !important; padding-right:2px !important; text-align:center; }
     .score-blind-checkbox { width:16px; height:16px; margin:0; vertical-align:middle; accent-color:var(--navy); }
     .score-entry { width: 49px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 4px; font-size: 16px; }
     .score-tab-options { display:flex; flex-direction:column; gap:10px; margin:12px 0 18px; }
@@ -148,7 +148,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v55</div>
+    <div class="version">b1v57</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -185,7 +185,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v55</strong></p>
+      <p>Application version: <strong>b1v57</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -366,7 +366,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v55</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v57</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -842,7 +842,7 @@
       // In Change mode, includeBowlerId makes the existing member available
       // alongside other unassigned bowlers, and the dropdown must be enabled.
       bowlerSelect.disabled = !bowlers.length;
-      if (!bowlers.length) showTeamMemberFormMessage('No unassigned active bowlers are available for this team.');
+      if (!bowlers.length) showTeamMemberFormMessage('No unassigned active bowlers are available for this team.\nDid you add the bowlers to the system?');
       else clearTeamMemberFormMessage();
     }
     document.getElementById('teamMemberTeamId').addEventListener('change', async () => {
@@ -1248,6 +1248,11 @@
                 scoreGameCount = Math.max(scoreGameCount, Number(draft.gameCount) || 1);
                 savedScoreMap = { ...savedScoreMap, ...draft.values };
                 savedBlindMap = { ...savedBlindMap, ...(draft.blind || {}) };
+                // The database is authoritative for Blind flags already saved. A stale
+                // recoverable draft from an earlier screen session must not clear them.
+                for (const [bowlerId, value] of Object.entries(persistedBlindMap)) {
+                  if (value === 'B') savedBlindMap[bowlerId] = 'B';
+                }
               }
             } else {
               // This draft matches the database; it is stale, not unsaved work.
@@ -1368,7 +1373,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v55', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v57', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

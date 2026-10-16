@@ -85,6 +85,7 @@ async function initializeOnce() {
     GameNbr INTEGER NOT NULL CHECK(GameNbr > 0),
     BowlerId INTEGER NOT NULL,
     Score INTEGER NOT NULL CHECK(Score >= 0 AND Score <= 300),
+    Blind TEXT CHECK(Blind IS NULL OR Blind='B'),
     UNIQUE(MatchId, GameNbr, BowlerId),
     FOREIGN KEY (MatchId) REFERENCES Matches(MatchId) ON DELETE CASCADE,
     FOREIGN KEY (BowlerId) REFERENCES Bowlers(BowlerId) ON DELETE RESTRICT
@@ -99,6 +100,8 @@ async function initializeOnce() {
   if (!matchColumns.includes('LanesUsed')) db.exec("ALTER TABLE Matches ADD COLUMN LanesUsed TEXT CHECK(LanesUsed IS NULL OR length(LanesUsed) <= 5)");
   if (!matchColumns.includes('Temp')) db.exec("ALTER TABLE Matches ADD COLUMN Temp INTEGER CHECK(Temp IS NULL OR (typeof(Temp)='integer' AND Temp > 0))");
   if (!matchColumns.includes('Humidity')) db.exec("ALTER TABLE Matches ADD COLUMN Humidity INTEGER CHECK(Humidity IS NULL OR (typeof(Humidity)='integer' AND Humidity > 0))");
+  const scoreColumns = rows('PRAGMA table_info(Scores)').map(column => column.name);
+  if (!scoreColumns.includes('Blind')) db.exec("ALTER TABLE Scores ADD COLUMN Blind TEXT CHECK(Blind IS NULL OR Blind='B')");
   const teamColumns = rows('PRAGMA table_info(Teams)').map(column => column.name);
   if (!teamColumns.includes('Order')) db.exec(`ALTER TABLE Teams ADD COLUMN "Order" INTEGER CHECK("Order" IS NULL OR (typeof("Order")='integer' AND "Order">0))`);
   const teamMemberColumns = rows('PRAGMA table_info(TeamMembers)').map(column => column.name);
@@ -271,7 +274,7 @@ self.onmessage = async event => {
         WHERE TeamMembers.TeamId IN (?, ?) AND Bowlers.Active=1
         ORDER BY CASE WHEN TeamMembers.TeamId=? THEN 0 ELSE 1 END, TeamMembers."Order" IS NULL, TeamMembers."Order", Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`, [requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.OurTeamId]) });
     } else if (type === 'listScores') {
-      self.postMessage({ id, ok: true, data: rows('SELECT ScoreId, MatchId, GameNbr, BowlerId, Score FROM Scores WHERE MatchId=? ORDER BY GameNbr, BowlerId', [requestPayload.MatchId]) });
+      self.postMessage({ id, ok: true, data: rows('SELECT ScoreId, MatchId, GameNbr, BowlerId, Score, Blind FROM Scores WHERE MatchId=? ORDER BY GameNbr, BowlerId', [requestPayload.MatchId]) });
     } else if (type === 'saveMatchScores') {
       const matchId = Number(requestPayload.MatchId);
       const scores = requestPayload.Scores;
@@ -308,7 +311,7 @@ self.onmessage = async event => {
         : gameNumbers;
       const normalizedScores = [];
       gamesToSave.forEach((oldGameNbr, index) => {
-        scores.filter(s => Number(s.GameNbr) === oldGameNbr).forEach(s => normalizedScores.push({ GameNbr: index + 1, BowlerId: Number(s.BowlerId), Score: Number(s.Score) }));
+        scores.filter(s => Number(s.GameNbr) === oldGameNbr).forEach(s => normalizedScores.push({ GameNbr: index + 1, BowlerId: Number(s.BowlerId), Score: Number(s.Score), Blind: s.Blind === 'B' ? 'B' : null }));
       });
       db.exec('BEGIN IMMEDIATE');
       try {
@@ -331,7 +334,7 @@ self.onmessage = async event => {
               )`);
         }
         db.exec({sql:'DELETE FROM Scores WHERE MatchId=?', bind:[matchId]});
-        for (const s of normalizedScores) db.exec({sql:'INSERT INTO Scores (MatchId, GameNbr, BowlerId, Score) VALUES (?, ?, ?, ?)', bind:[matchId, s.GameNbr, s.BowlerId, s.Score]});
+        for (const s of normalizedScores) db.exec({sql:'INSERT INTO Scores (MatchId, GameNbr, BowlerId, Score, Blind) VALUES (?, ?, ?, ?, ?)', bind:[matchId, s.GameNbr, s.BowlerId, s.Score, s.Blind]});
         db.exec('COMMIT');
       } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
       self.postMessage({ id, ok: true, data: { MatchId: matchId, count: normalizedScores.length } });
