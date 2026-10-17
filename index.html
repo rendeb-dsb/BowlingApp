@@ -128,8 +128,8 @@
     .score-grid th:first-child, .score-grid td:first-child { width: 145px; min-width: 145px; max-width: 145px; white-space: nowrap; position: sticky; left: 0; z-index: 2; background: #e7eef4; }
     .score-grid tbody td:first-child { background: #fff; }
     .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 72.5px; min-width: 72.5px; max-width: 72.5px; }
-    .score-blind-cell { width: 17px; min-width: 17px; max-width: 17px; padding-left:2px !important; padding-right:2px !important; text-align:center; }
-    .score-blind-checkbox { width:16px; height:16px; margin:0; vertical-align:middle; accent-color:var(--navy); }
+    .score-blind-cell { width: 8px !important; min-width: 8px !important; max-width: 8px !important; padding-left:0 !important; padding-right:0 !important; text-align:center; overflow:hidden; }
+    .score-blind-checkbox { width:14px; height:14px; max-width:14px; margin:0; vertical-align:middle; accent-color:var(--navy); }
     .score-entry { width: 49px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 4px; font-size: 16px; }
     .score-tab-options { display:flex; flex-direction:column; gap:10px; margin:12px 0 18px; }
     .score-tab-options label { display:flex; align-items:flex-start; gap:10px; line-height:1.4; cursor:pointer; }
@@ -148,7 +148,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v57</div>
+    <div class="version">b1v58</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -185,7 +185,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v57</strong></p>
+      <p>Application version: <strong>b1v58</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -366,7 +366,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v57</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v58</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1190,26 +1190,21 @@
       applyScoreTabIndexOrder();
       document.getElementById('nextGameButton').style.display = activeScoreMatchType === 'P' ? '' : 'none';
       document.getElementById('scoresStatus').textContent = `${scoreBowlers.length} bowlers · ${scoreGameCount} game${scoreGameCount === 1 ? '' : 's'} · ${activeScoreMatchType === 'P' ? 'Practice' : 'Match'}`;
-      // Whenever the Scores screen is opened or restored, resume at the last
-      // populated cell in the user's selected Next-button traversal order.
-      // If no score exists yet, begin at Game 1 / bowler 1.
+      // Whenever the Scores screen is opened or restored, begin at Game 1 / bowler 1.
+      // Select its existing value so it can be replaced immediately.
       if (focusGame !== null) {
-        setTimeout(() => focusLastScoreCell(), 180);
+        setTimeout(() => focusFirstScoreCell(), 180);
       }
     }
-    function focusLastScoreCell() {
+    function focusFirstScoreCell() {
+      const mode = document.querySelector('input[name="scoreTabOrder"]:checked')?.value || 'row-first';
       const inputs = [...document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]')];
       if (!inputs.length) return;
-      const mode = document.querySelector('input[name="scoreTabOrder"]:checked')?.value || 'row-first';
       const bowlerIndex = id => scoreBowlers.findIndex(b => Number(b.BowlerId) === Number(id));
       const traversal = inputs.sort((a, b) => mode === 'column-first'
         ? (Number(a.dataset.game) - Number(b.dataset.game)) || (bowlerIndex(a.dataset.bowler) - bowlerIndex(b.dataset.bowler))
         : (bowlerIndex(a.dataset.bowler) - bowlerIndex(b.dataset.bowler)) || (Number(a.dataset.game) - Number(b.dataset.game)));
-      let target = null;
-      for (const input of traversal) {
-        if (String(input.value).trim() !== '') target = input;
-      }
-      if (!target) target = traversal[0];
+      const target = traversal[0];
       if (target) {
         target.focus({ preventScroll: false });
         try { target.select(); } catch (_) {}
@@ -1373,7 +1368,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v57', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v58', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
