@@ -154,6 +154,11 @@
     .frame-rolls input:last-child { margin-right:0; }
     .frame-score { background:#102f49; color:#fff; height:48px; }
     .frame-score input { width:100%; max-width:54px; box-sizing:border-box; text-align:center; padding:3px 1px; min-height:30px; font-size:16px; }
+    #scoreDetailsTableWrap input.details-active-input { outline:3px solid #0b6388; background:#e5f7ff; }\n    .details-keypad { margin:12px 0 8px; padding:10px; border:1px solid #263746; border-radius:8px; background:#e4eef6; position:sticky; bottom:0; z-index:20; box-shadow:0 -2px 8px rgba(0,0,0,.12); }
+    .details-keypad-title { font-weight:700; margin:0 0 8px; }
+    .details-keypad-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
+    .details-keypad button { min-height:46px; font-size:20px; font-weight:600; touch-action:manipulation; }
+    .details-keypad button.key-action { font-size:15px; }
     .details-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0 14px; }
     .details-toolbar label { font-weight:600; }
     .details-toolbar select { min-height:36px; padding:5px 8px; }
@@ -169,7 +174,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v62</div>
+    <div class="version">b1v63</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -206,7 +211,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v62</strong></p>
+      <p>Application version: <strong>b1v63</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -383,6 +388,15 @@
       <div class="screen-titlebar"><h2 id="scoreDetailsTitle">Bowler Details</h2><div class="title-actions"><button class="action-button primary" id="backFromScoreDetailsButton" type="button">Back</button></div></div>
       <div class="details-toolbar"><label for="detailsGameSelect">Game:</label><select id="detailsGameSelect"></select></div>
       <div id="scoreDetailsTableWrap"></div>
+      <div class="details-keypad" id="detailsKeypad" aria-label="Score details keypad">
+        <div class="details-keypad-title" id="detailsKeypadPrompt">Select a frame entry</div>
+        <div class="details-keypad-grid">
+          <button type="button" data-pad-key="1">1</button><button type="button" data-pad-key="2">2</button><button type="button" data-pad-key="3">3</button><button type="button" data-pad-key="X">X</button>
+          <button type="button" data-pad-key="4">4</button><button type="button" data-pad-key="5">5</button><button type="button" data-pad-key="6">6</button><button type="button" data-pad-key="/">/</button>
+          <button type="button" data-pad-key="7">7</button><button type="button" data-pad-key="8">8</button><button type="button" data-pad-key="9">9</button><button type="button" data-pad-key="-">-</button>
+          <button type="button" data-pad-key="0">0</button><button type="button" data-pad-key="BACK" class="key-action">⌫</button><button type="button" data-pad-key="NEXT" class="key-action">Next</button><button type="button" data-pad-key="CLEAR" class="key-action">Clear</button>
+        </div>
+      </div>
       <p class="list-note">Enter pin symbols in the upper boxes (1–9, /, X, or -). Enter the frame score manually in the lower boxes. Entries are saved automatically on this device.</p>
     </section>
   </main>
@@ -393,7 +407,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v62</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v63</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1313,29 +1327,81 @@
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
       renderFrameDetails();
     }
+    let activeDetailsInput = null;
+    function detailsInputsInEntryOrder() {
+      const all = [];
+      for (let frame=1; frame<=10; frame++) {
+        document.querySelectorAll(`#scoreDetailsTableWrap [data-frame-roll="${frame}"]`).forEach(el => all.push(el));
+        const score = document.querySelector(`#scoreDetailsTableWrap [data-frame-score="${frame}"]`);
+        if (score) all.push(score);
+      }
+      const total = document.querySelector('#scoreDetailsTableWrap [data-frame-total]');
+      if (total) all.push(total);
+      return all;
+    }
+    function selectDetailsInput(input) {
+      if (!input) return;
+      activeDetailsInput = input;
+      document.querySelectorAll('#scoreDetailsTableWrap input').forEach(el => el.classList.toggle('details-active-input', el === input));
+      const prompt = document.getElementById('detailsKeypadPrompt');
+      prompt.textContent = input.dataset.frameRoll
+        ? `Frame ${input.dataset.frameRoll} · Ball ${Number(input.dataset.rollIndex)+1}`
+        : input.dataset.frameScore ? `Frame ${input.dataset.frameScore} · Score`
+        : 'Game Total';
+      input.scrollIntoView({block:'nearest', inline:'nearest'});
+    }
+    function advanceDetailsInput() {
+      const list = detailsInputsInEntryOrder();
+      const idx = list.indexOf(activeDetailsInput);
+      if (idx >= 0 && idx < list.length-1) selectDetailsInput(list[idx+1]);
+    }
     function renderFrameDetails() {
       if (!scoreDetailsBowler) return;
       const saved = readFrameDetails(scoreDetailsBowler.BowlerId, scoreDetailsGame);
       const frames = Array.from({length:10}, (_, i) => {
         const frame = i + 1, rolls = saved.rolls?.[frame] || [], rollCount = frame === 10 ? 3 : 2;
-        const rollInputs = Array.from({length:rollCount}, (_, j) => `<input type="text" maxlength="1" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="Frame ${frame}, ball ${j+1}" data-frame-roll="${frame}" data-roll-index="${j}" value="${escapeHtml(rolls[j] || '')}">`).join('');
-        const score = saved.scores?.[frame] || '';
+        const rollInputs = Array.from({length:rollCount}, (_, j) => `<input type="text" maxlength="1" readonly autocomplete="off" aria-label="Frame ${frame}, ball ${j+1}" data-frame-roll="${frame}" data-roll-index="${j}" value="${escapeHtml(rolls[j] || '')}">`).join('');
         return `<td class="frame-rolls"><div class="roll-inputs">${rollInputs}</div></td>`;
       }).join('');
-      const scores = Array.from({length:10}, (_, i) => { const frame=i+1; return `<td class="frame-score"><input type="text" maxlength="3" inputmode="numeric" pattern="[0-9]{0,3}" aria-label="Frame ${frame} score" data-frame-score="${frame}" value="${escapeHtml(saved.scores?.[frame] || '')}"></td>`; }).join('');
+      const scores = Array.from({length:10}, (_, i) => { const frame=i+1; return `<td class="frame-score"><input type="text" maxlength="3" readonly aria-label="Frame ${frame} score" data-frame-score="${frame}" value="${escapeHtml(saved.scores?.[frame] || '')}"></td>`; }).join('');
       const headers = Array.from({length:10}, (_,i) => `<th>${i+1}</th>`).join('');
-      document.getElementById('scoreDetailsTableWrap').innerHTML = `<table class="frame-scorecard" aria-label="Ten frame scorecard"><thead><tr>${headers}<th>Total</th></tr></thead><tbody><tr>${frames}<td class="frame-score" rowspan="2"><input type="text" maxlength="3" inputmode="numeric" pattern="[0-9]{0,3}" aria-label="Game total" data-frame-total value="${escapeHtml(saved.total || '')}"></td></tr><tr>${scores}</tr></tbody></table>`;
-      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-roll]').forEach(input => input.addEventListener('input', () => {
-        const value = input.value.toUpperCase();
-        if (value && !/^[1-9X/\-]$/.test(value)) { input.value = ''; }
-        else input.value = value;
-        persistFrameDetailsFromScreen();
-      }));
-      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-score], #scoreDetailsTableWrap [data-frame-total]').forEach(input => input.addEventListener('input', () => {
-        input.value = input.value.replace(/[^0-9]/g,'').slice(0,3);
-        persistFrameDetailsFromScreen();
-      }));
+      document.getElementById('scoreDetailsTableWrap').innerHTML = `<table class="frame-scorecard" aria-label="Ten frame scorecard"><thead><tr>${headers}<th>Total</th></tr></thead><tbody><tr>${frames}<td class="frame-score" rowspan="2"><input type="text" maxlength="3" readonly aria-label="Game total" data-frame-total value="${escapeHtml(saved.total || '')}"></td></tr><tr>${scores}</tr></tbody></table>`;
+      document.querySelectorAll('#scoreDetailsTableWrap input').forEach(input => input.addEventListener('click', () => selectDetailsInput(input)));
+      const inputs = detailsInputsInEntryOrder();
+      selectDetailsInput(inputs.find(el => !el.value) || inputs[0]);
+      persistFrameDetailsFromScreen();
     }
+    function enterDetailsKey(key) {
+      const list = detailsInputsInEntryOrder();
+      if (!activeDetailsInput || !list.includes(activeDetailsInput)) selectDetailsInput(list.find(el => !el.value) || list[0]);
+      const input = activeDetailsInput;
+      if (!input) return;
+      if (key === 'NEXT') { advanceDetailsInput(); return; }
+      if (key === 'CLEAR') { input.value=''; persistFrameDetailsFromScreen(); return; }
+      if (key === 'BACK') {
+        input.value = input.value.slice(0,-1);
+        persistFrameDetailsFromScreen();
+        return;
+      }
+      const isRoll = input.hasAttribute('data-frame-roll');
+      if (isRoll) {
+        const val = String(key).toUpperCase();
+        if (!/^[1-9X/\\-]$/.test(val)) return;
+        input.value = val;
+        persistFrameDetailsFromScreen();
+        advanceDetailsInput();
+      } else {
+        if (!/^[0-9]$/.test(String(key))) return;
+        if (input.value.length >= 3) input.value = '';
+        input.value += String(key);
+        persistFrameDetailsFromScreen();
+        if (input.value.length >= 3) advanceDetailsInput();
+      }
+    }
+    document.getElementById('detailsKeypad').addEventListener('click', event => {
+      const button = event.target.closest('[data-pad-key]');
+      if (button) enterDetailsKey(button.dataset.padKey);
+    });
     function persistFrameDetailsFromScreen() {
       if (!scoreDetailsBowler) return;
       const rolls = {}, scores = {};
@@ -1514,7 +1580,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v62', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v63', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

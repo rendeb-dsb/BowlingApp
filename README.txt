@@ -1,7 +1,7 @@
-Bowling PWA — Build 1 Version 62 (b1v62)
+Bowling PWA — Build 1 Version 62 (b1v63)
 
 Changes in this version
-Changes in b1v62
+Changes in b1v63
 - Adds a Details button beside each bowler row on the Scores screen.
 - Details opens a ten-frame scorecard for that bowler, with two pin-symbol entries in frames 1–9 and three in frame 10, plus manually entered three-digit frame scores and a total.
 - Pin-symbol entries accept only 1–9, /, X, and -.
@@ -295,8 +295,8 @@ Changes in b1v59
 - Scores now always opens with the Game 1 / first bowler score selected, rather than scanning for the last populated score.
 
 
-Changes in b1v61
+Changes in b1v63
 - Team Member assignment: all active bowlers are now available for selection, even if already assigned to another team of the same type.
 - When a selected bowler is already assigned to another Match or Practice team of that same type, the form displays a warning naming the other team. Saving requires confirmation so the duplicate-type assignment is intentional. A bowler still cannot be assigned to the same team twice.
 - Scores page: centered the Blind (B) column heading and its checkboxes.
-- Updated the displayed application version, SQLite worker URL, and service-worker cache to b1v62.
+- Updated the displayed application version, SQLite worker URL, and service-worker cache to b1v63.
