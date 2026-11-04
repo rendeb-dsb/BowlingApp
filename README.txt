@@ -1,4 +1,4 @@
-Bowling PWA — Build 1 Version 58 (b1v59)
+Bowling PWA — Build 1 Version 60 (b1v60)
 
 Changes in this version
 - Score entry boxes are approximately two-thirds of their previous width; Game columns are half their previous width.
@@ -286,3 +286,10 @@ Changes in b1v59
 Changes in b1v59
 - Reduced the Blind column width further, including its checkbox and cell padding.
 - Scores now always opens with the Game 1 / first bowler score selected, rather than scanning for the last populated score.
+
+
+Changes in b1v60
+- Team Member assignment: all active bowlers are now available for selection, even if already assigned to another team of the same type.
+- When a selected bowler is already assigned to another Match or Practice team of that same type, the form displays a warning naming the other team. Saving requires confirmation so the duplicate-type assignment is intentional. A bowler still cannot be assigned to the same team twice.
+- Scores page: centered the Blind (B) column heading and its checkboxes.
+- Updated the displayed application version, SQLite worker URL, and service-worker cache to b1v60.

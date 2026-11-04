@@ -226,26 +226,24 @@ self.onmessage = async event => {
     } else if (type === 'listActiveBowlers') {
       self.postMessage({ id, ok: true, data: rows('SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId') });
     } else if (type === 'listAvailableBowlersForTeam') {
-      const teamId = Number(requestPayload.TeamId);
-      const teamType = requestPayload.TeamType === 'P' ? 'P' : 'M';
-      const includeBowlerId = requestPayload.includeBowlerId == null ? null : Number(requestPayload.includeBowlerId);
-      // A bowler may belong to one team of each type, but cannot be assigned
-      // to multiple Match teams or multiple Practice teams. Keep the current
-      // bowler visible while changing an existing membership.
+      // All active bowlers are selectable. Duplicate assignments across teams
+      // are permitted; the UI warns so the user can confirm the intentional choice.
       const availableBowlers = rows(
-        `SELECT Bowlers.BowlerId, Bowlers.FirstName, Bowlers.LastName
-         FROM Bowlers
-         WHERE Bowlers.Active=1
-           AND (Bowlers.BowlerId=? OR NOT EXISTS (
-             SELECT 1 FROM TeamMembers AS TM
-             JOIN Teams AS AssignedTeam ON AssignedTeam.TeamId=TM.TeamId
-             WHERE TM.BowlerId=Bowlers.BowlerId
-               AND AssignedTeam.TeamType=?
-           ))
-         ORDER BY Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`,
-        [includeBowlerId, teamType]
+        'SELECT BowlerId, FirstName, LastName FROM Bowlers WHERE Active=1 ORDER BY LastName COLLATE NOCASE, FirstName COLLATE NOCASE, BowlerId'
       );
       self.postMessage({ id, ok: true, data: availableBowlers });
+    } else if (type === 'getOtherTeamAssignments') {
+      const teamId = Number(requestPayload.TeamId);
+      const bowlerId = Number(requestPayload.BowlerId);
+      const teamType = requestPayload.TeamType === 'P' ? 'P' : 'M';
+      const assignments = rows(
+        `SELECT Teams.TeamId, Teams.Name, Teams.TeamType
+         FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId
+         WHERE TeamMembers.BowlerId=? AND Teams.TeamType=? AND Teams.TeamId<>?
+         ORDER BY Teams.Name COLLATE NOCASE, Teams.TeamId`,
+        [bowlerId, teamType, teamId]
+      );
+      self.postMessage({ id, ok: true, data: assignments });
     } else if (type === 'listMatches') {
       self.postMessage({ id, ok: true, data: rows(`SELECT Matches.MatchId, Matches.Date, Matches.Location, Matches.LeagueId, Matches.MatchType,
         Matches.LanesUsed, Matches.Temp, Matches.Humidity, Matches.OurTeamId, Matches.OppoTeamId, Lanes.Name AS LocationName, Leagues.LeagueName,

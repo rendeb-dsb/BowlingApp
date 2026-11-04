@@ -52,6 +52,7 @@
     .db-status { margin:0 0 10px; font-size:13px; color:#526577; }
     .form-message { white-space:pre-line; display:none; margin:0 0 12px; padding:9px 11px; border-radius:4px; background:#fff0ee; color:#8b1e16; border:1px solid #e4aaa5; font-size:14px; }
     .form-message.show { display:block; }
+    .form-message.warning { background:#fff7df; color:#624b08; border-color:#dfc36b; }
     .lanes-table-wrap { width:100%; overflow:auto; }
     .lane-list td { overflow-wrap:anywhere; }
     .lane-list .lane-radio { width:34px; text-align:center; }
@@ -128,8 +129,9 @@
     .score-grid th:first-child, .score-grid td:first-child { width: 145px; min-width: 145px; max-width: 145px; white-space: nowrap; position: sticky; left: 0; z-index: 2; background: #e7eef4; }
     .score-grid tbody td:first-child { background: #fff; }
     .score-grid th:not(:first-child), .score-grid td:not(:first-child) { width: 72.5px; min-width: 72.5px; max-width: 72.5px; }
-    .score-blind-cell { width: 24px !important; min-width: 24px !important; max-width: 24px !important; padding-left:0 !important; padding-right:0 !important; text-align:center; overflow:hidden; }
-    .score-blind-checkbox { width:14px; height:14px; max-width:14px; margin:0; vertical-align:middle; accent-color:var(--navy); }
+    .score-blind-cell { width: 24px !important; min-width: 24px !important; max-width: 24px !important; padding-left:0 !important; padding-right:0 !important; text-align:center !important; overflow:hidden; }
+    .score-grid th.score-blind-cell { text-align:center !important; }
+    .score-blind-checkbox { display:block; width:14px; height:14px; max-width:14px; margin:0 auto; vertical-align:middle; accent-color:var(--navy); }
     .score-entry { width: 49px; max-width: 100%; box-sizing: border-box; min-height: 36px; padding: 4px; font-size: 16px; }
     .score-tab-options { display:flex; flex-direction:column; gap:10px; margin:12px 0 18px; }
     .score-tab-options label { display:flex; align-items:flex-start; gap:10px; line-height:1.4; cursor:pointer; }
@@ -148,7 +150,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v59</div>
+    <div class="version">b1v60</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -185,7 +187,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v59</strong></p>
+      <p>Application version: <strong>b1v60</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -366,7 +368,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v59</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v60</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -831,23 +833,34 @@
         return;
       }
       const selectedTeam = await dbCall('getTeam', { TeamId: teamId });
-      const bowlers = await dbCall('listAvailableBowlersForTeam', {
-        TeamId: teamId,
-        TeamType: selectedTeam?.TeamType || 'M',
-        // When changing a membership, keep its current bowler selectable.
-        includeBowlerId: editingTeamMember ? editingTeamMember.BowlerId : null
-      });
+      const bowlers = await dbCall('listAvailableBowlersForTeam', { TeamId: teamId });
       bowlerSelect.innerHTML = '<option value="">Select a bowler</option>' + bowlers.map(x => `<option value="${Number(x.BowlerId)}">${escapeHtml(x.LastName)}, ${escapeHtml(x.FirstName)}</option>`).join('');
       bowlerSelect.value = selectedBowlerId && [...bowlerSelect.options].some(option => option.value === String(selectedBowlerId)) ? String(selectedBowlerId) : '';
       // In Change mode, includeBowlerId makes the existing member available
       // alongside other unassigned bowlers, and the dropdown must be enabled.
       bowlerSelect.disabled = !bowlers.length;
-      if (!bowlers.length) showTeamMemberFormMessage('No unassigned active bowlers are available for this team.\nDid you add the bowlers to the system?');
+      if (!bowlers.length) showTeamMemberFormMessage('No active bowlers are available. Did you add the bowlers to the system?');
       else clearTeamMemberFormMessage();
     }
+    async function showDuplicateTeamTypeWarning() {
+      const teamId = Number(document.getElementById('teamMemberTeamId').value || 0);
+      const bowlerId = Number(document.getElementById('teamMemberBowlerId').value || 0);
+      if (!teamId || !bowlerId) { clearTeamMemberFormMessage(); return []; }
+      const team = await dbCall('getTeam', { TeamId: teamId });
+      const otherTeams = await dbCall('getOtherTeamAssignments', { TeamId: teamId, BowlerId: bowlerId, TeamType: team?.TeamType || 'M' });
+      if (otherTeams.length) {
+        const names = otherTeams.map(x => x.Name).join(', ');
+        showTeamMemberFormMessage(`Warning: This bowler is already assigned to another ${team.TeamType === 'P' ? 'Practice' : 'Match'} team (${names}). Adding the bowler to more than one team of this type is allowed, but should be done intentionally.`, true);
+      } else clearTeamMemberFormMessage();
+      return otherTeams;
+    }
     document.getElementById('teamMemberTeamId').addEventListener('change', async () => {
-      try { await refreshAvailableTeamMemberBowlers(); }
+      try { await refreshAvailableTeamMemberBowlers(); await showDuplicateTeamTypeWarning(); }
       catch (error) { showTeamMemberFormMessage('Unable to load available bowlers: ' + error.message); }
+    });
+    document.getElementById('teamMemberBowlerId').addEventListener('change', async () => {
+      try { await showDuplicateTeamTypeWarning(); }
+      catch (error) { showTeamMemberFormMessage('Unable to check other team assignments: ' + error.message); }
     });
     async function prepareTeamMemberForm(mode) {
       hideScreens(); teamMemberFormScreen.style.display = 'block'; currentEntity = 'TeamMembers';
@@ -895,8 +908,8 @@
         document.getElementById('teamMembersDbStatus').textContent = 'Unable to filter team members: ' + error.message;
       }
     });
-    function showTeamMemberFormMessage(message) { const el = document.getElementById('teamMemberFormMessage'); el.textContent = message; el.classList.add('show'); }
-    function clearTeamMemberFormMessage() { const el = document.getElementById('teamMemberFormMessage'); el.textContent = ''; el.classList.remove('show'); }
+    function showTeamMemberFormMessage(message, warning = false) { const el = document.getElementById('teamMemberFormMessage'); el.textContent = message; el.classList.toggle('warning', warning); el.classList.add('show'); }
+    function clearTeamMemberFormMessage() { const el = document.getElementById('teamMemberFormMessage'); el.textContent = ''; el.classList.remove('show', 'warning'); }
     document.getElementById('saveTeamMemberButton').addEventListener('click', async event => {
       event.preventDefault(); clearTeamMemberFormMessage();
       const TeamId = Number(document.getElementById('teamMemberTeamId').value);
@@ -905,15 +918,25 @@
       const Order = orderRaw === '' ? null : Number(orderRaw);
       if (orderRaw !== '' && (!Number.isInteger(Order) || Order < 1)) return showTeamMemberFormMessage('Order must be a positive whole number or left blank.');
       if (!TeamId || !BowlerId) return showTeamMemberFormMessage('Select both a team and a bowler.');
+      const saveMembership = async () => {
+        try {
+          if (editingTeamMember === null) await dbCall('insertTeamMember', { TeamId, BowlerId, Order });
+          else await dbCall('updateTeamMember', { oldTeamId: editingTeamMember.TeamId, oldBowlerId: editingTeamMember.BowlerId, TeamId, BowlerId, Order });
+          editingTeamMember = null; await showTeamMembersList();
+        } catch (error) {
+          if (/UNIQUE constraint failed|PRIMARY KEY constraint failed/i.test(error.message)) showTeamMemberFormMessage('This bowler is already assigned to that team.');
+          else if (/FOREIGN KEY constraint failed/i.test(error.message)) showTeamMemberFormMessage('Select an existing team and bowler.');
+          else showTeamMemberFormMessage('The membership could not be saved: ' + error.message);
+        }
+      };
       try {
-        if (editingTeamMember === null) await dbCall('insertTeamMember', { TeamId, BowlerId, Order });
-        else await dbCall('updateTeamMember', { oldTeamId: editingTeamMember.TeamId, oldBowlerId: editingTeamMember.BowlerId, TeamId, BowlerId, Order });
-        editingTeamMember = null; await showTeamMembersList();
-      } catch (error) {
-        if (/UNIQUE constraint failed|PRIMARY KEY constraint failed/i.test(error.message)) showTeamMemberFormMessage('This bowler is already assigned to that team.');
-        else if (/FOREIGN KEY constraint failed/i.test(error.message)) showTeamMemberFormMessage('Select an existing team and bowler.');
-        else showTeamMemberFormMessage('The membership could not be saved: ' + error.message);
-      }
+        const otherTeams = await showDuplicateTeamTypeWarning();
+        if (otherTeams.length) {
+          const team = await dbCall('getTeam', { TeamId });
+          const names = otherTeams.map(x => x.Name).join(', ');
+          showAppConfirm(`Warning: This bowler is already assigned to another ${team?.TeamType === 'P' ? 'Practice' : 'Match'} team (${names}). Do you still want to add this bowler to the selected team?`, saveMembership, () => {});
+        } else await saveMembership();
+      } catch (error) { showTeamMemberFormMessage('Unable to check team assignments: ' + error.message); }
     });
     document.getElementById('teamMemberForm').addEventListener('submit', event => event.preventDefault());
     document.getElementById('cancelTeamMemberButton').addEventListener('click', () => { editingTeamMember = null; showTeamMembersList(); });
@@ -1368,7 +1391,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v59', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v60', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
