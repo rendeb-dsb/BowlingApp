@@ -89,6 +89,16 @@ async function initializeOnce() {
     UNIQUE(MatchId, GameNbr, BowlerId),
     FOREIGN KEY (MatchId) REFERENCES Matches(MatchId) ON DELETE CASCADE,
     FOREIGN KEY (BowlerId) REFERENCES Bowlers(BowlerId) ON DELETE RESTRICT
+  );
+  CREATE TABLE IF NOT EXISTS ScoreFrameDetails (
+    ScoreId INTEGER NOT NULL,
+    FrameNumber INTEGER NOT NULL CHECK(FrameNumber BETWEEN 1 AND 10),
+    Ball1 TEXT CHECK(Ball1 IS NULL OR (length(Ball1)=1 AND Ball1 GLOB '[1-9X/ -]')),
+    Ball2 TEXT CHECK(Ball2 IS NULL OR (length(Ball2)=1 AND Ball2 GLOB '[1-9X/ -]')),
+    Ball3 TEXT CHECK(Ball3 IS NULL OR (FrameNumber=10 AND length(Ball3)=1 AND Ball3 GLOB '[1-9X/ -]')),
+    FrameScore INTEGER CHECK(FrameScore IS NULL OR (typeof(FrameScore)='integer' AND FrameScore BETWEEN 0 AND 999)),
+    PRIMARY KEY (ScoreId, FrameNumber),
+    FOREIGN KEY (ScoreId) REFERENCES Scores(ScoreId) ON DELETE CASCADE
   );`);
   // Upgrade existing b1v20 databases without removing saved league records.
   const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
@@ -282,6 +292,42 @@ self.onmessage = async event => {
         ORDER BY CASE WHEN TeamMembers.TeamId=? THEN 0 ELSE 1 END, TeamMembers."Order" IS NULL, TeamMembers."Order", Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`, [requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.OurTeamId]) });
     } else if (type === 'listScores') {
       self.postMessage({ id, ok: true, data: rows('SELECT ScoreId, MatchId, GameNbr, BowlerId, Score, Blind FROM Scores WHERE MatchId=? ORDER BY GameNbr, BowlerId', [requestPayload.MatchId]) });
+    } else if (type === 'getScoreFrameDetails') {
+      const row = rows(`SELECT D.FrameNumber, D.Ball1, D.Ball2, D.Ball3, D.FrameScore
+        FROM ScoreFrameDetails D JOIN Scores S ON S.ScoreId=D.ScoreId
+        WHERE S.MatchId=? AND S.BowlerId=? AND S.GameNbr=? ORDER BY D.FrameNumber`,
+        [requestPayload.MatchId, requestPayload.BowlerId, requestPayload.GameNbr]);
+      self.postMessage({ id, ok: true, data: row });
+    } else if (type === 'saveScoreFrameDetails') {
+      const score = rows('SELECT ScoreId FROM Scores WHERE MatchId=? AND BowlerId=? AND GameNbr=?',
+        [requestPayload.MatchId, requestPayload.BowlerId, requestPayload.GameNbr])[0];
+      if (!score) { self.postMessage({ id, ok: true, data: { saved: false } }); }
+      else {
+        const d = requestPayload.Details || {};
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          for (let frame=1; frame<=10; frame++) {
+            const rolls = d.rolls?.[frame] || [];
+            const cleanRoll = value => /^[1-9X/\-]$/i.test(String(value || '')) ? String(value).toUpperCase() : null;
+            const cleanScore = value => value === '' || value == null ? null : (/^\d{1,3}$/.test(String(value)) ? Number(value) : null);
+            const ball1 = cleanRoll(rolls[0]), ball2 = cleanRoll(rolls[1]);
+            const ball3 = frame === 10 ? cleanRoll(rolls[2]) : null;
+            const frameScore = cleanScore(d.scores?.[frame]);
+            if (frameScore !== null && (frameScore < 0 || frameScore > 999)) throw new Error('Frame scores must be whole numbers from 0 through 999.');
+            db.exec({sql:`INSERT INTO ScoreFrameDetails (ScoreId, FrameNumber, Ball1, Ball2, Ball3, FrameScore)
+              VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(ScoreId, FrameNumber) DO UPDATE SET
+              Ball1=excluded.Ball1, Ball2=excluded.Ball2, Ball3=excluded.Ball3, FrameScore=excluded.FrameScore`,
+              bind:[score.ScoreId, frame, ball1, ball2, ball3, frameScore]});
+          }
+          db.exec('COMMIT');
+        } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
+        const totalText = d.total == null ? '' : String(d.total);
+        if (totalText !== '' && /^\d{1,3}$/.test(totalText)) {
+          const total = Number(totalText);
+          if (total >= 0 && total <= 300) db.exec({sql:'UPDATE Scores SET Score=? WHERE ScoreId=?', bind:[total, score.ScoreId]});
+        }
+        self.postMessage({ id, ok: true, data: { saved: true, ScoreId: score.ScoreId } });
+      }
     } else if (type === 'saveMatchScores') {
       const matchId = Number(requestPayload.MatchId);
       const scores = requestPayload.Scores;
@@ -340,8 +386,14 @@ self.onmessage = async event => {
                 HAVING COUNT(*) > 0 AND SUM(CASE WHEN S2.Score <> 0 THEN 1 ELSE 0 END)=0
               )`);
         }
+        const priorDetails = rows(`SELECT S.GameNbr, S.BowlerId, D.FrameNumber, D.Ball1, D.Ball2, D.Ball3, D.FrameScore
+          FROM ScoreFrameDetails D JOIN Scores S ON S.ScoreId=D.ScoreId WHERE S.MatchId=?`, [matchId]);
         db.exec({sql:'DELETE FROM Scores WHERE MatchId=?', bind:[matchId]});
         for (const s of normalizedScores) db.exec({sql:'INSERT INTO Scores (MatchId, GameNbr, BowlerId, Score, Blind) VALUES (?, ?, ?, ?, ?)', bind:[matchId, s.GameNbr, s.BowlerId, s.Score, s.Blind]});
+        for (const d of priorDetails) {
+          const replacement = rows('SELECT ScoreId FROM Scores WHERE MatchId=? AND GameNbr=? AND BowlerId=?', [matchId, d.GameNbr, d.BowlerId])[0];
+          if (replacement) db.exec({sql:'INSERT OR REPLACE INTO ScoreFrameDetails (ScoreId, FrameNumber, Ball1, Ball2, Ball3, FrameScore) VALUES (?, ?, ?, ?, ?, ?)', bind:[replacement.ScoreId, d.FrameNumber, d.Ball1, d.Ball2, d.Ball3, d.FrameScore]});
+        }
         db.exec('COMMIT');
       } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
       self.postMessage({ id, ok: true, data: { MatchId: matchId, count: normalizedScores.length } });

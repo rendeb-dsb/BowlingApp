@@ -174,7 +174,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v63</div>
+    <div class="version">b1v64</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -211,7 +211,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v63</strong></p>
+      <p>Application version: <strong>b1v64</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -407,7 +407,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v63</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v64</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1313,6 +1313,16 @@
       try { return JSON.parse(localStorage.getItem(frameDetailsStorageKey(bowlerId, gameNbr)) || 'null') || {}; }
       catch (_) { return {}; }
     }
+    async function readFrameDetailsFromDatabase(bowlerId, gameNbr) {
+      const fallback = readFrameDetails(bowlerId, gameNbr);
+      try {
+        const rows = await dbCall('getScoreFrameDetails', { MatchId: activeScoreMatch, BowlerId: Number(bowlerId), GameNbr: Number(gameNbr) });
+        if (!rows?.length) return fallback;
+        const data = { rolls:{}, scores:{}, total:fallback.total || '' };
+        rows.forEach(row => { data.rolls[row.FrameNumber] = [row.Ball1 || '', row.Ball2 || '', row.Ball3 || '']; data.scores[row.FrameNumber] = row.FrameScore == null ? '' : String(row.FrameScore); });
+        return data;
+      } catch (_) { return fallback; }
+    }
     function openBowlerFrameDetails(bowlerId) {
       const bowler = scoreBowlers.find(item => Number(item.BowlerId) === Number(bowlerId));
       if (!bowler) return;
@@ -1355,9 +1365,9 @@
       const idx = list.indexOf(activeDetailsInput);
       if (idx >= 0 && idx < list.length-1) selectDetailsInput(list[idx+1]);
     }
-    function renderFrameDetails() {
+    async function renderFrameDetails() {
       if (!scoreDetailsBowler) return;
-      const saved = readFrameDetails(scoreDetailsBowler.BowlerId, scoreDetailsGame);
+      const saved = await readFrameDetailsFromDatabase(scoreDetailsBowler.BowlerId, scoreDetailsGame);
       const frames = Array.from({length:10}, (_, i) => {
         const frame = i + 1, rolls = saved.rolls?.[frame] || [], rollCount = frame === 10 ? 3 : 2;
         const rollInputs = Array.from({length:rollCount}, (_, j) => `<input type="text" maxlength="1" readonly autocomplete="off" aria-label="Frame ${frame}, ball ${j+1}" data-frame-roll="${frame}" data-roll-index="${j}" value="${escapeHtml(rolls[j] || '')}">`).join('');
@@ -1412,6 +1422,9 @@
       document.querySelectorAll('#scoreDetailsTableWrap [data-frame-score]').forEach(input => { scores[Number(input.dataset.frameScore)] = input.value; });
       const data = { rolls, scores, total: document.querySelector('#scoreDetailsTableWrap [data-frame-total]')?.value || '' };
       try { localStorage.setItem(frameDetailsStorageKey(scoreDetailsBowler.BowlerId, scoreDetailsGame), JSON.stringify(data)); } catch (_) {}
+      // The local draft remains a recovery copy; once the game score exists, the
+      // normalized frame values are also committed to SQLite.
+      dbCall('saveScoreFrameDetails', { MatchId: activeScoreMatch, BowlerId: Number(scoreDetailsBowler.BowlerId), GameNbr: Number(scoreDetailsGame), Details: data }).catch(() => {});
     }
     document.getElementById('detailsGameSelect').addEventListener('change', event => {
       persistFrameDetailsFromScreen(); scoreDetailsGame = Number(event.target.value) || 1; renderFrameDetails();
@@ -1580,7 +1593,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v63', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v64', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
