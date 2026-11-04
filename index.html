@@ -174,7 +174,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v64</div>
+    <div class="version">b1v65</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -211,7 +211,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v64</strong></p>
+      <p>Application version: <strong>b1v65</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -407,7 +407,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v64</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v65</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1339,15 +1339,9 @@
     }
     let activeDetailsInput = null;
     function detailsInputsInEntryOrder() {
-      const all = [];
-      for (let frame=1; frame<=10; frame++) {
-        document.querySelectorAll(`#scoreDetailsTableWrap [data-frame-roll="${frame}"]`).forEach(el => all.push(el));
-        const score = document.querySelector(`#scoreDetailsTableWrap [data-frame-score="${frame}"]`);
-        if (score) all.push(score);
-      }
-      const total = document.querySelector('#scoreDetailsTableWrap [data-frame-total]');
-      if (total) all.push(total);
-      return all;
+      // Only the ball/roll cells are entry controls. Frame scores and the game
+      // total are calculated automatically from the entered rolls.
+      return [...document.querySelectorAll('#scoreDetailsTableWrap [data-frame-roll]')];
     }
     function selectDetailsInput(input) {
       if (!input) return;
@@ -1365,6 +1359,79 @@
       const idx = list.indexOf(activeDetailsInput);
       if (idx >= 0 && idx < list.length-1) selectDetailsInput(list[idx+1]);
     }
+    function calculateFrameScores() {
+      const parsedFrames = [];
+      const deliveries = [];
+      const frameStarts = [];
+      const symbolValue = (symbol, previous = null) => {
+        if (!symbol) return null;
+        if (symbol === 'X') return 10;
+        if (symbol === '-') return 0;
+        if (symbol === '/') return previous == null ? null : 10 - previous;
+        if (/^[1-9]$/.test(symbol)) return Number(symbol);
+        return null;
+      };
+      for (let frame=1; frame<=10; frame++) {
+        const cells = [...document.querySelectorAll(`#scoreDetailsTableWrap [data-frame-roll="${frame}"]`)]
+          .sort((a,b) => Number(a.dataset.rollIndex)-Number(b.dataset.rollIndex));
+        const symbols = cells.map(el => el.value.trim().toUpperCase());
+        const values = [];
+        frameStarts[frame] = deliveries.length;
+        if (frame < 10) {
+          const first = symbolValue(symbols[0]);
+          if (first !== null) {
+            values.push(first);
+            if (symbols[0] !== 'X') {
+              const second = symbolValue(symbols[1], first);
+              if (second !== null) values.push(second);
+            }
+          }
+          parsedFrames[frame] = {symbols, values, strike:symbols[0] === 'X',
+            spare:symbols[0] !== 'X' && symbols[1] === '/'};
+        } else {
+          let previous = null;
+          for (let i=0; i<3; i++) {
+            const value = symbolValue(symbols[i], previous);
+            if (value === null) break;
+            values.push(value); previous = value;
+          }
+          parsedFrames[frame] = {symbols, values,
+            strike:symbols[0] === 'X',
+            spare:symbols[0] !== 'X' && symbols[1] === '/'};
+        }
+        deliveries.push(...values);
+      }
+
+      const frameScores = {};
+      for (let frame=1; frame<=9; frame++) {
+        const info = parsedFrames[frame], start = frameStarts[frame];
+        let score = null;
+        if (info.strike) {
+          if (deliveries.length >= start + 3) score = 10 + deliveries[start+1] + deliveries[start+2];
+        } else if (info.spare) {
+          if (deliveries.length >= start + 3) score = 10 + deliveries[start+2];
+        } else if (info.values.length === 2) {
+          score = info.values[0] + info.values[1];
+        }
+        frameScores[frame] = score;
+      }
+      const tenth = parsedFrames[10];
+      if (tenth.values.length >= 2) {
+        const needsThird = tenth.strike || tenth.spare;
+        if (!needsThird || tenth.values.length >= 3) {
+          frameScores[10] = tenth.values.reduce((sum, value) => sum + value, 0);
+        } else frameScores[10] = null;
+      } else frameScores[10] = null;
+
+      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-score]').forEach(input => {
+        const frame = Number(input.dataset.frameScore);
+        input.value = frameScores[frame] == null ? '' : String(frameScores[frame]);
+      });
+      const complete = Array.from({length:10}, (_,i) => frameScores[i+1]);
+      const totalInput = document.querySelector('#scoreDetailsTableWrap [data-frame-total]');
+      if (totalInput) totalInput.value = complete.every(value => value != null)
+        ? String(complete.reduce((sum,value) => sum + value, 0)) : '';
+    }
     async function renderFrameDetails() {
       if (!scoreDetailsBowler) return;
       const saved = await readFrameDetailsFromDatabase(scoreDetailsBowler.BowlerId, scoreDetailsGame);
@@ -1376,7 +1443,8 @@
       const scores = Array.from({length:10}, (_, i) => { const frame=i+1; return `<td class="frame-score"><input type="text" maxlength="3" readonly aria-label="Frame ${frame} score" data-frame-score="${frame}" value="${escapeHtml(saved.scores?.[frame] || '')}"></td>`; }).join('');
       const headers = Array.from({length:10}, (_,i) => `<th>${i+1}</th>`).join('');
       document.getElementById('scoreDetailsTableWrap').innerHTML = `<table class="frame-scorecard" aria-label="Ten frame scorecard"><thead><tr>${headers}<th>Total</th></tr></thead><tbody><tr>${frames}<td class="frame-score" rowspan="2"><input type="text" maxlength="3" readonly aria-label="Game total" data-frame-total value="${escapeHtml(saved.total || '')}"></td></tr><tr>${scores}</tr></tbody></table>`;
-      document.querySelectorAll('#scoreDetailsTableWrap input').forEach(input => input.addEventListener('click', () => selectDetailsInput(input)));
+      document.querySelectorAll('#scoreDetailsTableWrap input[data-frame-roll]').forEach(input => input.addEventListener('click', () => selectDetailsInput(input)));
+      calculateFrameScores();
       const inputs = detailsInputsInEntryOrder();
       selectDetailsInput(inputs.find(el => !el.value) || inputs[0]);
       persistFrameDetailsFromScreen();
@@ -1387,10 +1455,10 @@
       const input = activeDetailsInput;
       if (!input) return;
       if (key === 'NEXT') { advanceDetailsInput(); return; }
-      if (key === 'CLEAR') { input.value=''; persistFrameDetailsFromScreen(); return; }
+      if (key === 'CLEAR') { input.value=''; calculateFrameScores(); persistFrameDetailsFromScreen(); return; }
       if (key === 'BACK') {
         input.value = input.value.slice(0,-1);
-        persistFrameDetailsFromScreen();
+        calculateFrameScores(); persistFrameDetailsFromScreen();
         return;
       }
       const isRoll = input.hasAttribute('data-frame-roll');
@@ -1398,8 +1466,15 @@
         const val = String(key).toUpperCase();
         if (!/^[1-9X/\\-]$/.test(val)) return;
         input.value = val;
+        calculateFrameScores();
         persistFrameDetailsFromScreen();
-        advanceDetailsInput();
+        if (val === 'X' && Number(input.dataset.frameRoll) < 10 && Number(input.dataset.rollIndex) === 0) {
+          const nextFrame = Number(input.dataset.frameRoll) + 1;
+          const next = document.querySelector(`#scoreDetailsTableWrap [data-frame-roll="${nextFrame}"][data-roll-index="0"]`);
+          if (next) selectDetailsInput(next);
+        } else {
+          advanceDetailsInput();
+        }
       } else {
         if (!/^[0-9]$/.test(String(key))) return;
         if (input.value.length >= 3) input.value = '';
@@ -1593,7 +1668,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v64', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v65', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

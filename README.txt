@@ -1,13 +1,13 @@
-Bowling PWA — Build 1 Version 64 (b1v64)
+Bowling PWA — Build 1 Version 64 (b1v65)
 
-Changes in b1v64
+Changes in b1v65
 - Adds the SQLite ScoreFrameDetails table, keyed by ScoreId and FrameNumber, with a cascading foreign key to Scores.
 - Persists each frame’s ball symbols and manually entered frame score in SQLite.
 - Loads saved frame details from SQLite when opening a bowler/game card; retains local device drafts for recovery before a Scores record exists.
 - Preserves frame details when Scores are resaved and ScoreId records are recreated.
 
 Changes in this version
-Changes in b1v64
+Changes in b1v65
 - Adds a Details button beside each bowler row on the Scores screen.
 - Details opens a ten-frame scorecard for that bowler, with two pin-symbol entries in frames 1–9 and three in frame 10, plus manually entered three-digit frame scores and a total.
 - Pin-symbol entries accept only 1–9, /, X, and -.
@@ -301,8 +301,11 @@ Changes in b1v59
 - Scores now always opens with the Game 1 / first bowler score selected, rather than scanning for the last populated score.
 
 
-Changes in b1v64
+Changes in b1v65
 - Team Member assignment: all active bowlers are now available for selection, even if already assigned to another team of the same type.
 - When a selected bowler is already assigned to another Match or Practice team of that same type, the form displays a warning naming the other team. Saving requires confirmation so the duplicate-type assignment is intentional. A bowler still cannot be assigned to the same team twice.
 - Scores page: centered the Blind (B) column heading and its checkboxes.
-- Updated the displayed application version, SQLite worker URL, and service-worker cache to b1v64.
+- Updated the displayed application version, SQLite worker URL, and service-worker cache to b1v65.
+
+
+b1v65: Frame scores and the game total are calculated automatically using standard ten-pin bowling scoring rules. Strike and spare bonuses are applied when the required later rolls have been entered.
