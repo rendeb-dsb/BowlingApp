@@ -150,7 +150,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v60</div>
+    <div class="version">b1v61</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -187,7 +187,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v60</strong></p>
+      <p>Application version: <strong>b1v61</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -368,7 +368,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v60</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v61</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1021,22 +1021,30 @@
           document.getElementById('matchLocation').value = String(matchToEdit.Location);
           document.getElementById('matchLeague').value = String(matchToEdit.LeagueId);
         }
-        const populateMatchTeams = (preserveSelections = false) => {
+        const populateMatchTeams = async (preserveSelections = false) => {
           const type = document.getElementById('matchType').value;
+          const leagueId = Number(document.getElementById('matchLeague').value);
           const ourSelect = document.getElementById('matchOurTeam');
           const oppoSelect = document.getElementById('matchOppoTeam');
           const oldOur = preserveSelections ? ourSelect.value : (matchToEdit ? String(matchToEdit.OurTeamId) : '');
           const oldOppo = preserveSelections ? oppoSelect.value : (matchToEdit ? String(matchToEdit.OppoTeamId) : '');
           const relevantTeams = type ? teams.filter(team => team.TeamType === type) : teams;
-          const fillTeamSelect = (select, placeholder, selected) => {
-            select.innerHTML = `<option value="">${placeholder}</option>` + relevantTeams.map(team => `<option value="${Number(team.TeamId)}">${escapeHtml(team.Name)}</option>`).join('');
-            select.disabled = relevantTeams.length === 0;
-            if (relevantTeams.some(team => String(team.TeamId) === selected)) select.value = selected;
+          let noOpponentId = null;
+          if (type === 'P' && leagueId) {
+            const systemTeam = await dbCall('getNoOpponentTeamId', { LeagueId: leagueId });
+            noOpponentId = String(systemTeam.TeamId);
+          }
+          const fillTeamSelect = (select, placeholder, selected, includeNoOpponent = false) => {
+            const options = relevantTeams.map(team => `<option value="${Number(team.TeamId)}">${escapeHtml(team.Name)}</option>`).join('');
+            const noOpponentOption = includeNoOpponent && noOpponentId ? `<option value="${noOpponentId}">No opponent</option>` : '';
+            select.innerHTML = `<option value="">${placeholder}</option>` + options + noOpponentOption;
+            select.disabled = relevantTeams.length === 0 && !noOpponentOption;
+            if (relevantTeams.some(team => String(team.TeamId) === selected) || (includeNoOpponent && selected === noOpponentId)) select.value = selected;
           };
-          fillTeamSelect(ourSelect, 'Select our team', oldOur);
-          fillTeamSelect(oppoSelect, 'Select opponent team', oldOppo);
+          fillTeamSelect(ourSelect, 'Select our team', oldOur, false);
+          fillTeamSelect(oppoSelect, 'Select opponent team', oldOppo, type === 'P');
         };
-        populateMatchTeams(false);
+        await populateMatchTeams(false);
         if (!matchToEdit && (!locations.length || !leagues.length || !teams.length)) {
           const missing = [];
           if (!locations.length) missing.push('a bowling center (Lanes)');
@@ -1089,24 +1097,34 @@
         else showMatchFormMessage('The match could not be saved: ' + error.message);
       } finally { button.disabled = false; }
     });
-    document.getElementById('matchType').addEventListener('change', () => {
-      const our = document.getElementById('matchOurTeam');
-      const oppo = document.getElementById('matchOppoTeam');
-      const previousOur = our.value;
-      const previousOppo = oppo.value;
-      const type = document.getElementById('matchType').value;
-      // Team choices are filtered by the selected Match/Practice type. A blank type permits all teams.
-      dbCall('listTeams').then(teams => {
+    async function refreshMatchTeamChoices() {
+      try {
+        const teams = await dbCall('listTeams');
+        const our = document.getElementById('matchOurTeam');
+        const oppo = document.getElementById('matchOppoTeam');
+        const previousOur = our.value;
+        const previousOppo = oppo.value;
+        const type = document.getElementById('matchType').value;
+        const leagueId = Number(document.getElementById('matchLeague').value);
         const relevant = type ? teams.filter(team => team.TeamType === type) : teams;
-        const fill = (select, placeholder, previous) => {
-          select.innerHTML = `<option value="">${placeholder}</option>` + relevant.map(team => `<option value="${Number(team.TeamId)}">${escapeHtml(team.Name)}</option>`).join('');
-          select.disabled = relevant.length === 0;
-          if (relevant.some(team => String(team.TeamId) === previous)) select.value = previous;
+        let noOpponentId = null;
+        if (type === 'P' && leagueId) {
+          const systemTeam = await dbCall('getNoOpponentTeamId', { LeagueId: leagueId });
+          noOpponentId = String(systemTeam.TeamId);
+        }
+        const fill = (select, placeholder, previous, includeNoOpponent = false) => {
+          const teamOptions = relevant.map(team => `<option value="${Number(team.TeamId)}">${escapeHtml(team.Name)}</option>`).join('');
+          const noOpponentOption = includeNoOpponent && noOpponentId ? `<option value="${noOpponentId}">No opponent</option>` : '';
+          select.innerHTML = `<option value="">${placeholder}</option>` + teamOptions + noOpponentOption;
+          select.disabled = relevant.length === 0 && !noOpponentOption;
+          if (relevant.some(team => String(team.TeamId) === previous) || (includeNoOpponent && previous === noOpponentId)) select.value = previous;
         };
-        fill(our, 'Select our team', previousOur);
-        fill(oppo, 'Select opponent team', previousOppo);
-      }).catch(error => showMatchFormMessage('Unable to load teams: ' + error.message));
-    });
+        fill(our, 'Select our team', previousOur, false);
+        fill(oppo, 'Select opponent team', previousOppo, type === 'P');
+      } catch (error) { showMatchFormMessage('Unable to load teams: ' + error.message); }
+    }
+    document.getElementById('matchType').addEventListener('change', refreshMatchTeamChoices);
+    document.getElementById('matchLeague').addEventListener('change', refreshMatchTeamChoices);
     document.getElementById('matchForm').addEventListener('submit', event => event.preventDefault());
     document.getElementById('cancelMatchButton').addEventListener('click', () => { editingMatchId = null; showMatchesList(); });
 
@@ -1391,7 +1409,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v60', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v61', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
