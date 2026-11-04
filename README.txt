@@ -1,3 +1,8 @@
+Bowling PWA b1v66
+- Corrected Score Details to show cumulative frame scores, including strike and spare bonuses.
+- Frame values remain blank until their bonus rolls are available.
+- Tenth-frame bonus-roll handling corrected.
+
 Bowling PWA — Build 1 Version 64 (b1v65)
 
 Changes in b1v65
