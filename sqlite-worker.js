@@ -159,6 +159,56 @@ self.onmessage = async event => {
       self.postMessage({ id, ok: true, data: info });
     } else if (!db) {
       throw new Error('The BowlingDB database is not initialized.');
+    } else if (type === 'exportDatabase') {
+      const tableNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
+      const tables = tableNames.map(name => {
+        const columns = rows(`PRAGMA table_info(\"${name}\")`).map(column => column.name);
+        return { name, columns, rows: rows(`SELECT * FROM \"${name}\"`) };
+      });
+      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v67', exportedAt: new Date().toISOString(), tables } });
+    } else if (type === 'importDatabase') {
+      const backup = requestPayload;
+      const expectedNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
+      if (!backup || backup.format !== 'BowlingDB-JSON' || !Array.isArray(backup.tables)) throw new Error('The file is not a recognized BowlingDB export.');
+      const supplied = new Map(backup.tables.map(table => [table && table.name, table]));
+      if (supplied.size !== expectedNames.length || expectedNames.some(name => !supplied.has(name))) throw new Error('The backup must contain all eight BowlingDB tables. No data was changed.');
+      for (const name of expectedNames) {
+        const table = supplied.get(name);
+        if (!Array.isArray(table.columns) || !Array.isArray(table.rows)) throw new Error(`The ${name} table data is incomplete.`);
+        const currentColumns = rows(`PRAGMA table_info(\"${name}\")`).map(column => column.name);
+        if (currentColumns.length !== table.columns.length || currentColumns.some((column, index) => column !== table.columns[index])) throw new Error(`The ${name} table structure does not match this app build. No data was changed.`);
+        for (const record of table.rows) {
+          if (!record || typeof record !== 'object' || Array.isArray(record) || Object.keys(record).length !== currentColumns.length || currentColumns.some(column => !Object.prototype.hasOwnProperty.call(record, column))) throw new Error(`A record in ${name} has missing or unexpected fields.`);
+        }
+      }
+      const deleteOrder = ['ScoreFrameDetails','Scores','Matches','TeamMembers','Teams','Leagues','Bowlers','Lanes'];
+      const insertOrder = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
+      let recordCount = 0;
+      db.exec('PRAGMA foreign_keys = OFF');
+      try {
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          for (const name of deleteOrder) db.exec(`DELETE FROM \"${name}\"`);
+          try { db.exec('DELETE FROM sqlite_sequence'); } catch (_) {}
+          for (const name of insertOrder) {
+            const table = supplied.get(name);
+            const columns = table.columns;
+            if (table.rows.length) {
+              const sql = `INSERT INTO \"${name}\" (${columns.map(column => `\"${column}\"`).join(',')}) VALUES (${columns.map(() => '?').join(',')})`;
+              for (const record of table.rows) {
+                db.exec({ sql, bind: columns.map(column => record[column] === undefined ? null : record[column]) });
+                recordCount++;
+              }
+            }
+          }
+          const violations = rows('PRAGMA foreign_key_check');
+          if (violations.length) throw new Error(`The backup contains ${violations.length} invalid foreign-key relationship(s).`);
+          db.exec('COMMIT');
+        } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
+      } finally {
+        db.exec('PRAGMA foreign_keys = ON');
+      }
+      self.postMessage({ id, ok: true, data: { tables: expectedNames.length, records: recordCount } });
     } else if (type === 'list') {
       const laneRows = rows('SELECT LaneId, Name, Telephone, Address1, City, State, Zip, "Order" FROM Lanes ORDER BY "Order", LaneId');
       self.postMessage({ id, ok: true, data: laneRows });

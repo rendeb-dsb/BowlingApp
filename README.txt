@@ -1,4 +1,10 @@
-Bowling PWA b1v66
+Bowling PWA b1v67
+- Implements complete JSON database Export and Import for all eight BowlingDB tables, including ScoreFrameDetails.
+- Export downloads a timestamped BowlingDB JSON backup and reports record counts for each table.
+- Import validates the backup format and table structures, warns that all current records will be replaced, and performs the replacement in a SQLite transaction with foreign-key validation.
+- A failed import rolls back and preserves the existing database.
+
+Bowling PWA b1v67
 - Corrected Score Details to show cumulative frame scores, including strike and spare bonuses.
 - Frame values remain blank until their bonus rolls are available.
 - Tenth-frame bonus-roll handling corrected.

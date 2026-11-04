@@ -174,7 +174,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v66</div>
+    <div class="version">b1v67</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -205,13 +205,15 @@
     <button class="menu-button" id="matchesButton" aria-pressed="false">Matches</button>
   </nav>
 
+  <input id="databaseImportFile" type="file" accept=".json,application/json" hidden>
+
   <main id="displayArea">
     <section class="home-panel" id="homePanel" aria-label="Bowling home screen">
       <img class="home-art" src="./images/bowling-home.png" alt="Colorful bowling alley with a smiling blue bowling ball and bowling pins">
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v66</strong></p>
+      <p>Application version: <strong>b1v67</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -407,7 +409,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v66</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v67</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1684,8 +1686,11 @@
           if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else if (currentEntity === 'Teams') deleteSelectedTeam(); else if (currentEntity === 'TeamMembers') deleteSelectedTeamMember(); else if (currentEntity === 'Matches') showAppMessage('Deleting matches will be implemented in a later build.'); else deleteSelectedLane();
         } else if (action === 'Quit') {
           showAppMessage('To close Bowling, use your device’s app switcher or browser controls.');
-        } else if (action === 'Import' || action === 'Export') {
-          showAppMessage(action + ' will be implemented in a later version.');
+        } else if (action === 'Export') {
+          exportBowlingDatabase().catch(error => showAppMessage('Export failed: ' + error.message));
+        } else if (action === 'Import') {
+          document.getElementById('databaseImportFile').value = '';
+          document.getElementById('databaseImportFile').click();
         } else {
           showAppMessage(action + ' will be implemented in a later version.');
         }
@@ -1701,7 +1706,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v66', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v67', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -1730,6 +1735,53 @@
         worker.postMessage({ id, type, data });
       });
     }
+
+    function localFileStamp(date = new Date()) {
+      const pad = value => String(value).padStart(2, '0');
+      return `${date.getFullYear()}${pad(date.getMonth()+1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+    }
+    async function exportBowlingDatabase() {
+      await ensureDatabaseReady();
+      const backup = await dbCall('exportDatabase');
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `BowlingDB-${localFileStamp()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      const summary = backup.tables.map(table => `${table.name}: ${table.rows.length}`).join(', ');
+      showAppMessage(`BowlingDB export created. All ${backup.tables.length} tables were included.\n\n${summary}`);
+    }
+    document.getElementById('databaseImportFile').addEventListener('change', async event => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      try {
+        if (file.size > 25 * 1024 * 1024) throw new Error('The selected JSON file is larger than 25 MB.');
+        const text = await file.text();
+        let backup;
+        try { backup = JSON.parse(text); } catch (_) { throw new Error('The selected file is not valid JSON.'); }
+        if (!backup || backup.format !== 'BowlingDB-JSON' || !Array.isArray(backup.tables)) {
+          throw new Error('This is not a BowlingDB JSON export. No data was changed.');
+        }
+        const counts = backup.tables.map(table => `${table.name}: ${(table.rows || []).length}`).join(', ');
+        showAppConfirm(`Import ${file.name}?\n\nThis will REPLACE all current BowlingDB records in all tables. This cannot be undone. Make sure you have exported a backup of the current database first.\n\n${counts}`, async () => {
+          try {
+            await ensureDatabaseReady();
+            const result = await dbCall('importDatabase', backup);
+            showAppMessage(`Import completed successfully.\n\n${result.tables} tables and ${result.records} records were imported. The app will reload to show the imported data.`, () => window.location.reload());
+          } catch (error) {
+            showAppMessage('Import failed. The existing database was not replaced.\n\n' + error.message);
+          }
+        });
+      } catch (error) {
+        showAppMessage('Import could not be started: ' + error.message);
+      } finally {
+        event.target.value = '';
+      }
+    });
     // Every screen shares one initialization promise. If a user taps a menu
     // immediately after launch, the screen waits for startup rather than racing
     // a second database-open request.
