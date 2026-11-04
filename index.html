@@ -138,6 +138,25 @@
     .score-tab-options input[type="radio"] { margin:3px 0 0; width:18px; height:18px; flex:0 0 auto; accent-color:var(--navy); }
     #scoresTableWrap { overflow-x: auto; position: relative; }
   
+    .score-grid-with-actions { display:flex; align-items:flex-start; gap:5px; width:100%; }
+    .score-grid-with-actions > .lane-list-wrap { flex:1 1 auto; min-width:0; }
+    .score-details-actions { display:flex; flex:0 0 auto; flex-direction:column; }
+    .score-details-spacer { flex:0 0 auto; }
+    .score-details-action-row { display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .score-details-button { padding:4px 7px; min-height:29px; font-size:13px; white-space:nowrap; }
+    #scoreDetailsTableWrap { overflow-x:auto; width:100%; }
+    .frame-scorecard { border-collapse:separate; border-spacing:2px; table-layout:fixed; min-width:760px; width:100%; }
+    .frame-scorecard th, .frame-scorecard td { border:1px solid #263746; text-align:center; padding:4px 2px; }
+    .frame-scorecard th { background:#dce8ef; font-weight:700; }
+    .frame-scorecard .frame-rolls { background:#102f49; color:#fff; height:54px; vertical-align:top; }
+    .frame-rolls .roll-inputs { display:flex; justify-content:center; gap:2px; }
+    .frame-rolls input { width:25px; min-width:0; height:30px; padding:2px; text-align:center; font-size:16px; text-transform:uppercase; border:1px solid #8da0ad; border-radius:3px; }
+    .frame-rolls input:last-child { margin-right:0; }
+    .frame-score { background:#102f49; color:#fff; height:48px; }
+    .frame-score input { width:100%; max-width:54px; box-sizing:border-box; text-align:center; padding:3px 1px; min-height:30px; font-size:16px; }
+    .details-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0 14px; }
+    .details-toolbar label { font-weight:600; }
+    .details-toolbar select { min-height:36px; padding:5px 8px; }
     .match-select-cell { width:42px; min-width:42px; max-width:42px; text-align:center; }
     .matches-date-cell { width:101px; min-width:101px; max-width:101px; }
     .matches-filter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 12px; }
@@ -150,7 +169,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v61</div>
+    <div class="version">b1v62</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -187,7 +206,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v61</strong></p>
+      <p>Application version: <strong>b1v62</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -360,6 +379,12 @@
       <div id="scoresTableWrap"></div>
       <p class="list-note">Enter whole-number scores from 0 through 300. Leave no score blank when saving. Unsaved entries are kept as a recoverable draft on this device.</p>
     </section>
+    <section class="display-screen" id="scoreDetailsScreen" aria-label="Bowler frame details">
+      <div class="screen-titlebar"><h2 id="scoreDetailsTitle">Bowler Details</h2><div class="title-actions"><button class="action-button primary" id="backFromScoreDetailsButton" type="button">Back</button></div></div>
+      <div class="details-toolbar"><label for="detailsGameSelect">Game:</label><select id="detailsGameSelect"></select></div>
+      <div id="scoreDetailsTableWrap"></div>
+      <p class="list-note">Enter pin symbols in the upper boxes (1–9, /, X, or -). Enter the frame score manually in the lower boxes. Entries are saved automatically on this device.</p>
+    </section>
   </main>
   <div class="app-message-backdrop" id="appMessageBackdrop" role="presentation">
     <section class="app-message" role="alertdialog" aria-modal="true" aria-labelledby="appMessageTitle" aria-describedby="appMessageText">
@@ -368,7 +393,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v61</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v62</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -395,7 +420,11 @@
     const matchesListScreen = document.getElementById('matchesListScreen');
     const matchFormScreen = document.getElementById('matchFormScreen');
     const scoresScreen = document.getElementById('scoresScreen');
+    const scoreDetailsScreen = document.getElementById('scoreDetailsScreen');
     let currentEntity = 'Lanes';
+    let scoreDetailsBowler = null;
+    let scoreDetailsGame = 1;
+    let scoreDetailsReturnFocus = null;
     let editingLaneId = null;
     let editingBowlerId = null;
     let editingLeagueId = null;
@@ -457,6 +486,7 @@
       matchesListScreen.style.display = 'none';
       matchFormScreen.style.display = 'none';
       scoresScreen.style.display = 'none';
+      scoreDetailsScreen.style.display = 'none';
     }
     function setLanesActive(active) {
       lanesButton.classList.toggle('active', active);
@@ -1190,7 +1220,18 @@
     function renderScoreGrid(focusGame = null) {
       const headers = Array.from({length: scoreGameCount}, (_, i) => `<th>Game ${i+1}</th>`).join('');
       const rowsHtml = scoreBowlers.map(bowler => { const blind = savedBlindMap[String(bowler.BowlerId)] === 'B' ? ' checked' : ''; return `<tr><td>${escapeHtml(bowler.FullName)}</td><td class="score-blind-cell"><input class="score-blind-checkbox" type="checkbox" data-blind-bowler="${Number(bowler.BowlerId)}" aria-label="Blind bowler: ${escapeHtml(bowler.FullName)}"${blind}></td>${Array.from({length: scoreGameCount}, (_, i) => scoreInputHtml(bowler, i+1)).join('')}</tr>`; }).join('');
-      document.getElementById('scoresTableWrap').innerHTML = `<div class="lane-list-wrap"><table class="lane-list score-grid" aria-label="Bowling scores"><thead><tr><th>Bowler</th><th class="score-blind-cell">B</th>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+      const detailButtons = scoreBowlers.map(bowler => `<div class="score-details-action-row"><button class="action-button score-details-button" type="button" data-details-bowler="${Number(bowler.BowlerId)}">Details</button></div>`).join('');
+      document.getElementById('scoresTableWrap').innerHTML = `<div class="score-grid-with-actions"><div class="lane-list-wrap"><table class="lane-list score-grid" aria-label="Bowling scores"><thead><tr><th>Bowler</th><th class="score-blind-cell">B</th>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div><div class="score-details-actions"><div class="score-details-spacer"></div>${detailButtons}</div></div>`;
+      document.querySelectorAll('#scoresTableWrap [data-details-bowler]').forEach(button => button.addEventListener('click', () => openBowlerFrameDetails(Number(button.dataset.detailsBowler))));
+      requestAnimationFrame(() => {
+        const table = document.querySelector('#scoresTableWrap .score-grid');
+        const spacer = document.querySelector('#scoresTableWrap .score-details-spacer');
+        const actionRows = [...document.querySelectorAll('#scoresTableWrap .score-details-action-row')];
+        if (!table || !spacer) return;
+        const header = table.querySelector('thead tr');
+        spacer.style.height = `${header?.getBoundingClientRect().height || 44}px`;
+        [...table.querySelectorAll('tbody tr')].forEach((row, index) => { if (actionRows[index]) actionRows[index].style.height = `${row.getBoundingClientRect().height}px`; });
+      });
       document.querySelectorAll('#scoresTableWrap input[data-blind-bowler]').forEach(input => input.addEventListener('change', () => { savedBlindMap[String(input.dataset.blindBowler)] = input.checked ? 'B' : null; preserveScoreDraft(); }));
       document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]').forEach(input => {
         input.addEventListener('input', preserveScoreDraft);
@@ -1251,6 +1292,70 @@
         try { target.select(); } catch (_) {}
       }
     }
+    function frameDetailsStorageKey(bowlerId, gameNbr) {
+      return `bowling-frame-details-${activeScoreMatch}-${bowlerId}-${gameNbr}`;
+    }
+    function readFrameDetails(bowlerId, gameNbr) {
+      try { return JSON.parse(localStorage.getItem(frameDetailsStorageKey(bowlerId, gameNbr)) || 'null') || {}; }
+      catch (_) { return {}; }
+    }
+    function openBowlerFrameDetails(bowlerId) {
+      const bowler = scoreBowlers.find(item => Number(item.BowlerId) === Number(bowlerId));
+      if (!bowler) return;
+      scoreDetailsBowler = bowler;
+      scoreDetailsGame = 1;
+      scoreDetailsReturnFocus = document.activeElement;
+      const selector = document.getElementById('detailsGameSelect');
+      selector.innerHTML = Array.from({length: scoreGameCount}, (_, i) => `<option value="${i+1}">Game ${i+1}</option>`).join('');
+      selector.value = '1';
+      document.getElementById('scoreDetailsTitle').textContent = `Details - ${bowler.FullName}`;
+      hideScreens(); scoreDetailsScreen.style.display = 'block'; currentEntity = 'ScoreDetails';
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
+      renderFrameDetails();
+    }
+    function renderFrameDetails() {
+      if (!scoreDetailsBowler) return;
+      const saved = readFrameDetails(scoreDetailsBowler.BowlerId, scoreDetailsGame);
+      const frames = Array.from({length:10}, (_, i) => {
+        const frame = i + 1, rolls = saved.rolls?.[frame] || [], rollCount = frame === 10 ? 3 : 2;
+        const rollInputs = Array.from({length:rollCount}, (_, j) => `<input type="text" maxlength="1" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="Frame ${frame}, ball ${j+1}" data-frame-roll="${frame}" data-roll-index="${j}" value="${escapeHtml(rolls[j] || '')}">`).join('');
+        const score = saved.scores?.[frame] || '';
+        return `<td class="frame-rolls"><div class="roll-inputs">${rollInputs}</div></td>`;
+      }).join('');
+      const scores = Array.from({length:10}, (_, i) => { const frame=i+1; return `<td class="frame-score"><input type="text" maxlength="3" inputmode="numeric" pattern="[0-9]{0,3}" aria-label="Frame ${frame} score" data-frame-score="${frame}" value="${escapeHtml(saved.scores?.[frame] || '')}"></td>`; }).join('');
+      const headers = Array.from({length:10}, (_,i) => `<th>${i+1}</th>`).join('');
+      document.getElementById('scoreDetailsTableWrap').innerHTML = `<table class="frame-scorecard" aria-label="Ten frame scorecard"><thead><tr>${headers}<th>Total</th></tr></thead><tbody><tr>${frames}<td class="frame-score" rowspan="2"><input type="text" maxlength="3" inputmode="numeric" pattern="[0-9]{0,3}" aria-label="Game total" data-frame-total value="${escapeHtml(saved.total || '')}"></td></tr><tr>${scores}</tr></tbody></table>`;
+      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-roll]').forEach(input => input.addEventListener('input', () => {
+        const value = input.value.toUpperCase();
+        if (value && !/^[1-9X/\-]$/.test(value)) { input.value = ''; }
+        else input.value = value;
+        persistFrameDetailsFromScreen();
+      }));
+      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-score], #scoreDetailsTableWrap [data-frame-total]').forEach(input => input.addEventListener('input', () => {
+        input.value = input.value.replace(/[^0-9]/g,'').slice(0,3);
+        persistFrameDetailsFromScreen();
+      }));
+    }
+    function persistFrameDetailsFromScreen() {
+      if (!scoreDetailsBowler) return;
+      const rolls = {}, scores = {};
+      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-roll]').forEach(input => {
+        const frame = Number(input.dataset.frameRoll), index = Number(input.dataset.rollIndex);
+        rolls[frame] ||= []; rolls[frame][index] = input.value.toUpperCase();
+      });
+      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-score]').forEach(input => { scores[Number(input.dataset.frameScore)] = input.value; });
+      const data = { rolls, scores, total: document.querySelector('#scoreDetailsTableWrap [data-frame-total]')?.value || '' };
+      try { localStorage.setItem(frameDetailsStorageKey(scoreDetailsBowler.BowlerId, scoreDetailsGame), JSON.stringify(data)); } catch (_) {}
+    }
+    document.getElementById('detailsGameSelect').addEventListener('change', event => {
+      persistFrameDetailsFromScreen(); scoreDetailsGame = Number(event.target.value) || 1; renderFrameDetails();
+    });
+    document.getElementById('backFromScoreDetailsButton').addEventListener('click', () => {
+      persistFrameDetailsFromScreen(); hideScreens(); scoresScreen.style.display = 'block'; currentEntity = 'Scores';
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
+      if (scoreDetailsReturnFocus?.isConnected) scoreDetailsReturnFocus.focus({preventScroll:true});
+    });
+
     function setScoresMessage(message) {
       const el = document.getElementById('scoresMessage'); el.textContent = message; el.classList.toggle('show', !!message);
     }
@@ -1409,7 +1514,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v61', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v62', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
