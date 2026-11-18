@@ -155,6 +155,17 @@
     .frame-score { background:#102f49; color:#fff; height:48px; }
     .frame-score input { width:100%; max-width:54px; box-sizing:border-box; text-align:center; padding:3px 1px; min-height:30px; font-size:16px; }
     #scoreDetailsTableWrap input.details-active-input { outline:3px solid #0b6388; background:#e5f7ff; }\n    .details-keypad { margin:12px 0 8px; padding:10px; border:1px solid #263746; border-radius:8px; background:#e4eef6; position:sticky; bottom:0; z-index:20; box-shadow:0 -2px 8px rgba(0,0,0,.12); }
+    .details-marks { display:flex; flex-wrap:wrap; gap:8px 14px; margin:12px 0 6px; border:1px solid #8da0ad; border-radius:7px; padding:8px; }
+    .details-marks legend { font-weight:600; font-size:13px; }
+    .details-marks label { display:flex; align-items:center; gap:4px; font-size:13px; }
+    .roll-inputs .marked-roll { position:relative; display:inline-flex; }
+    .roll-inputs .marked-roll input { position:relative; z-index:1; }
+    .roll-inputs .marked-roll.mark-split input { border:2px solid #cf202c; border-radius:50%; }
+    .roll-inputs .marked-roll.mark-wide-split input { border:2px solid #17834a; border-radius:50%; }
+    .roll-inputs .marked-roll.mark-stacked-wood input { border:2px solid #e6bb00; border-radius:50%; }
+    .roll-inputs .marked-roll.mark-seven-pin::before, .roll-inputs .marked-roll.mark-ten-pin::after { content:""; position:absolute; width:6px; height:6px; background:#d00; border-radius:50%; top:12px; z-index:3; pointer-events:none; }
+    .roll-inputs .marked-roll.mark-seven-pin::before { left:1px; }
+    .roll-inputs .marked-roll.mark-ten-pin::after { right:1px; }
     .details-keypad-title { font-weight:700; margin:0 0 8px; }
     .details-keypad-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
     .details-keypad button { min-height:46px; font-size:20px; font-weight:600; touch-action:manipulation; }
@@ -174,7 +185,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v67</div>
+    <div class="version">b1v68</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -213,7 +224,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v67</strong></p>
+      <p>Application version: <strong>b1v68</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -390,6 +401,14 @@
       <div class="screen-titlebar"><h2 id="scoreDetailsTitle">Bowler Details</h2><div class="title-actions"><button class="action-button primary" id="backFromScoreDetailsButton" type="button">Back</button></div></div>
       <div class="details-toolbar"><label for="detailsGameSelect">Game:</label><select id="detailsGameSelect"></select></div>
       <div id="scoreDetailsTableWrap"></div>
+      <fieldset class="details-marks" id="detailsMarks">
+        <legend>Mark selected throw (tap again to remove)</legend>
+        <label><input type="radio" name="detailsMark" value="split">Split</label>
+        <label><input type="radio" name="detailsMark" value="wide-split">Wide Split</label>
+        <label><input type="radio" name="detailsMark" value="seven-pin">Seven pin</label>
+        <label><input type="radio" name="detailsMark" value="ten-pin">Ten pin</label>
+        <label><input type="radio" name="detailsMark" value="stacked-wood">Stacked Wood</label>
+      </fieldset>
       <div class="details-keypad" id="detailsKeypad" aria-label="Score details keypad">
         <div class="details-keypad-title" id="detailsKeypadPrompt">Select a frame entry</div>
         <div class="details-keypad-grid">
@@ -409,7 +428,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v67</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v68</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1233,6 +1252,16 @@
       const saveButton = document.getElementById('saveScoresButton');
       if (saveButton) saveButton.tabIndex = inputs.length + 1;
     }
+    let lastScoresEntryCell = null;
+    function restoreScoresEntryFocus() {
+      if (currentEntity !== 'Scores' || scoresScreen.style.display === 'none') return;
+      const target = lastScoresEntryCell?.isConnected ? lastScoresEntryCell : document.querySelector('#scoresTableWrap input.score-entry');
+      if (!target) return;
+      target.focus({preventScroll:false});
+      try { target.select(); } catch (_) {}
+    }
+    window.addEventListener('focus', () => { if (currentEntity === 'Scores') setTimeout(restoreScoresEntryFocus, 120); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && currentEntity === 'Scores') setTimeout(restoreScoresEntryFocus, 180); });
     function renderScoreGrid(focusGame = null) {
       const headers = Array.from({length: scoreGameCount}, (_, i) => `<th>Game ${i+1}</th>`).join('');
       const rowsHtml = scoreBowlers.map(bowler => { const blind = savedBlindMap[String(bowler.BowlerId)] === 'B' ? ' checked' : ''; return `<tr><td>${escapeHtml(bowler.FullName)}</td><td class="score-blind-cell"><input class="score-blind-checkbox" type="checkbox" data-blind-bowler="${Number(bowler.BowlerId)}" aria-label="Blind bowler: ${escapeHtml(bowler.FullName)}"${blind}></td>${Array.from({length: scoreGameCount}, (_, i) => scoreInputHtml(bowler, i+1)).join('')}</tr>`; }).join('');
@@ -1252,6 +1281,7 @@
       document.querySelectorAll('#scoresTableWrap input[data-bowler][data-game]').forEach(input => {
         input.addEventListener('input', preserveScoreDraft);
         input.addEventListener('focus', () => {
+          lastScoresEntryCell = input;
           // Select an existing score when possible so it can be replaced immediately.
           try { input.select(); } catch (_) {}
         });
@@ -1329,11 +1359,11 @@
       const bowler = scoreBowlers.find(item => Number(item.BowlerId) === Number(bowlerId));
       if (!bowler) return;
       scoreDetailsBowler = bowler;
-      scoreDetailsGame = 1;
+      scoreDetailsGame = Math.max(1, Math.min(scoreGameCount, scoreDetailsGame));
       scoreDetailsReturnFocus = document.activeElement;
       const selector = document.getElementById('detailsGameSelect');
       selector.innerHTML = Array.from({length: scoreGameCount}, (_, i) => `<option value="${i+1}">Game ${i+1}</option>`).join('');
-      selector.value = '1';
+      selector.value = String(scoreDetailsGame);
       document.getElementById('scoreDetailsTitle').textContent = `Details - ${bowler.FullName}`;
       hideScreens(); scoreDetailsScreen.style.display = 'block'; currentEntity = 'ScoreDetails';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
@@ -1345,6 +1375,24 @@
       // total are calculated automatically from the entered rolls.
       return [...document.querySelectorAll('#scoreDetailsTableWrap [data-frame-roll]')];
     }
+    function nextActiveDetailsInput() {
+      const cells = detailsInputsInEntryOrder();
+      let last = -1;
+      for (let i = cells.length - 1; i >= 0; i--) if (String(cells[i].value).trim()) { last = i; break; }
+      if (last < 0) return cells[0] || null;
+      const cell = cells[last];
+      if (cell.value.toUpperCase() === 'X' && Number(cell.dataset.frameRoll) < 10 && Number(cell.dataset.rollIndex) === 0)
+        return cells.find(el => Number(el.dataset.frameRoll) === Number(cell.dataset.frameRoll) + 1 && Number(el.dataset.rollIndex) === 0) || cell;
+      return cells[Math.min(last + 1, cells.length - 1)] || null;
+    }
+    function revealActiveDetailsFrame(input) {
+      const viewport = document.getElementById('scoreDetailsTableWrap');
+      const cell = input?.closest('td');
+      if (!viewport || !cell) return;
+      const left = cell.offsetLeft, right = left + cell.offsetWidth;
+      if (left < viewport.scrollLeft) viewport.scrollLeft = Math.max(0, left - 12);
+      else if (right > viewport.scrollLeft + viewport.clientWidth) viewport.scrollLeft = Math.max(0, right - viewport.clientWidth + 12);
+    }
     function selectDetailsInput(input) {
       if (!input) return;
       activeDetailsInput = input;
@@ -1354,7 +1402,8 @@
         ? `Frame ${input.dataset.frameRoll} · Ball ${Number(input.dataset.rollIndex)+1}`
         : input.dataset.frameScore ? `Frame ${input.dataset.frameScore} · Score`
         : 'Game Total';
-      input.scrollIntoView({block:'nearest', inline:'nearest'});
+      revealActiveDetailsFrame(input);
+      refreshDetailsMarks();
     }
     function advanceDetailsInput() {
       const list = detailsInputsInEntryOrder();
@@ -1472,7 +1521,7 @@
       const saved = await readFrameDetailsFromDatabase(scoreDetailsBowler.BowlerId, scoreDetailsGame);
       const frames = Array.from({length:10}, (_, i) => {
         const frame = i + 1, rolls = saved.rolls?.[frame] || [], rollCount = frame === 10 ? 3 : 2;
-        const rollInputs = Array.from({length:rollCount}, (_, j) => `<input type="text" maxlength="1" readonly autocomplete="off" aria-label="Frame ${frame}, ball ${j+1}" data-frame-roll="${frame}" data-roll-index="${j}" value="${escapeHtml(rolls[j] || '')}">`).join('');
+        const rollInputs = Array.from({length:rollCount}, (_, j) => `<span class="marked-roll"><input type="text" maxlength="1" readonly autocomplete="off" aria-label="Frame ${frame}, ball ${j+1}" data-frame-roll="${frame}" data-roll-index="${j}" value="${escapeHtml(rolls[j] || '')}"></span>`).join('');
         return `<td class="frame-rolls"><div class="roll-inputs">${rollInputs}</div></td>`;
       }).join('');
       const scores = Array.from({length:10}, (_, i) => { const frame=i+1; return `<td class="frame-score"><input type="text" maxlength="3" readonly aria-label="Frame ${frame} score" data-frame-score="${frame}" value="${escapeHtml(saved.scores?.[frame] || '')}"></td>`; }).join('');
@@ -1481,12 +1530,44 @@
       document.querySelectorAll('#scoreDetailsTableWrap input[data-frame-roll]').forEach(input => input.addEventListener('click', () => selectDetailsInput(input)));
       calculateFrameScores();
       const inputs = detailsInputsInEntryOrder();
-      selectDetailsInput(inputs.find(el => !el.value) || inputs[0]);
+      selectDetailsInput(nextActiveDetailsInput());
       persistFrameDetailsFromScreen();
     }
+    function detailsMarksKey() {
+      return `bowling-roll-marks-${activeScoreMatch}-${scoreDetailsBowler?.BowlerId}-${scoreDetailsGame}`;
+    }
+    function loadDetailsMarks() {
+      try { return JSON.parse(localStorage.getItem(detailsMarksKey()) || '{}') || {}; }
+      catch (_) { return {}; }
+    }
+    function refreshDetailsMarks() {
+      const marks = loadDetailsMarks();
+      document.querySelectorAll('#scoreDetailsTableWrap [data-frame-roll]').forEach(input => {
+        const key = `${input.dataset.frameRoll}:${input.dataset.rollIndex}`;
+        const wrap = input.closest('.marked-roll');
+        if (wrap) wrap.className = 'marked-roll' + (marks[key] ? ` mark-${marks[key]}` : '');
+      });
+      const key = activeDetailsInput ? `${activeDetailsInput.dataset.frameRoll}:${activeDetailsInput.dataset.rollIndex}` : '';
+      const selected = marks[key] || '';
+      document.querySelectorAll('input[name="detailsMark"]').forEach(r => { r.checked = r.value === selected; });
+    }
+    let previousDetailsMark = '';
+    document.querySelectorAll('input[name="detailsMark"]').forEach(radio => {
+      radio.addEventListener('pointerdown', () => { previousDetailsMark = radio.checked ? radio.value : ''; });
+      radio.addEventListener('click', () => {
+        if (!activeDetailsInput) return;
+        const marks = loadDetailsMarks();
+        const key = `${activeDetailsInput.dataset.frameRoll}:${activeDetailsInput.dataset.rollIndex}`;
+        if (previousDetailsMark === radio.value) delete marks[key];
+        else marks[key] = radio.value;
+        localStorage.setItem(detailsMarksKey(), JSON.stringify(marks));
+        previousDetailsMark = '';
+        refreshDetailsMarks();
+      });
+    });
     function enterDetailsKey(key) {
       const list = detailsInputsInEntryOrder();
-      if (!activeDetailsInput || !list.includes(activeDetailsInput)) selectDetailsInput(list.find(el => !el.value) || list[0]);
+      if (!activeDetailsInput || !list.includes(activeDetailsInput)) selectDetailsInput(nextActiveDetailsInput());
       const input = activeDetailsInput;
       if (!input) return;
       if (key === 'NEXT') { advanceDetailsInput(); return; }
@@ -1542,7 +1623,7 @@
     document.getElementById('backFromScoreDetailsButton').addEventListener('click', () => {
       persistFrameDetailsFromScreen(); hideScreens(); scoresScreen.style.display = 'block'; currentEntity = 'Scores';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
-      if (scoreDetailsReturnFocus?.isConnected) scoreDetailsReturnFocus.focus({preventScroll:true});
+      restoreScoresEntryFocus();
     });
 
     function setScoresMessage(message) {
@@ -1553,6 +1634,7 @@
         const detail = await dbCall('getMatchForScores', { MatchId: matchId });
         if (!detail) return showAppMessage('The selected match could not be found.');
         activeScoreMatch = matchId; activeScoreMatchType = detail.MatchType;
+        scoreDetailsGame = 1; lastScoresEntryCell = null;
         const bowlers = await dbCall('listMatchBowlers', { OurTeamId: detail.OurTeamId, OppoTeamId: detail.OppoTeamId });
         const distinctBowlerCount = new Set(bowlers.map(b => Number(b.BowlerId))).size;
         if (activeScoreMatchType === 'M' && (bowlers.length !== 8 || distinctBowlerCount !== 8)) {
@@ -1706,7 +1788,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v67', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v68', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);

@@ -165,7 +165,7 @@ self.onmessage = async event => {
         const columns = rows(`PRAGMA table_info(\"${name}\")`).map(column => column.name);
         return { name, columns, rows: rows(`SELECT * FROM \"${name}\"`) };
       });
-      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v67', exportedAt: new Date().toISOString(), tables } });
+      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v68', exportedAt: new Date().toISOString(), tables } });
     } else if (type === 'importDatabase') {
       const backup = requestPayload;
       const expectedNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
