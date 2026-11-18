@@ -160,9 +160,9 @@
     .details-marks label { display:flex; align-items:center; gap:4px; font-size:13px; }
     .roll-inputs .marked-roll { position:relative; display:inline-flex; }
     .roll-inputs .marked-roll input { position:relative; z-index:1; }
-    .roll-inputs .marked-roll.mark-split input { border:2px solid #cf202c; border-radius:50%; }
-    .roll-inputs .marked-roll.mark-wide-split input { border:2px solid #17834a; border-radius:50%; }
-    .roll-inputs .marked-roll.mark-stacked-wood input { border:2px solid #e6bb00; border-radius:50%; }
+    .roll-inputs .marked-roll.mark-split input { border:6px solid #cf202c; border-radius:50%; }
+    .roll-inputs .marked-roll.mark-wide-split input { border:6px solid #17834a; border-radius:50%; }
+    .roll-inputs .marked-roll.mark-stacked-wood input { border:6px solid #e6bb00; border-radius:50%; }
     .roll-inputs .marked-roll.mark-seven-pin::before, .roll-inputs .marked-roll.mark-ten-pin::after { content:""; position:absolute; width:6px; height:6px; background:#d00; border-radius:50%; top:12px; z-index:3; pointer-events:none; }
     .roll-inputs .marked-roll.mark-seven-pin::before { left:1px; }
     .roll-inputs .marked-roll.mark-ten-pin::after { right:1px; }
@@ -185,7 +185,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v68</div>
+    <div class="version">b1v69</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -224,7 +224,7 @@
     </section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v68</strong></p>
+      <p>Application version: <strong>b1v69</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -428,7 +428,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v68</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v69</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1788,7 +1788,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v68', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v69', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
