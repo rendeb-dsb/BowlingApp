@@ -165,7 +165,7 @@ self.onmessage = async event => {
         const columns = rows(`PRAGMA table_info(\"${name}\")`).map(column => column.name);
         return { name, columns, rows: rows(`SELECT * FROM \"${name}\"`) };
       });
-      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v69', exportedAt: new Date().toISOString(), tables } });
+      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v70', exportedAt: new Date().toISOString(), tables } });
     } else if (type === 'importDatabase') {
       const backup = requestPayload;
       const expectedNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
@@ -461,7 +461,7 @@ self.onmessage = async event => {
       const missingTeams = rows("SELECT TeamId, Name FROM Teams WHERE Name <> '__SYSTEM_NO_OPPONENT__' AND \"Order\" IS NULL ORDER BY Name COLLATE NOCASE, TeamId");
       const missingMembers = rows('SELECT Teams.Name AS TeamName, Bowlers.FirstName, Bowlers.LastName FROM TeamMembers JOIN Teams ON Teams.TeamId=TeamMembers.TeamId JOIN Bowlers ON Bowlers.BowlerId=TeamMembers.BowlerId WHERE TeamMembers."Order" IS NULL ORDER BY Teams.Name COLLATE NOCASE, Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE');
       const list = (items, format) => items.length ? '<ul>' + items.map(format).join('') + '</ul>' : '<p>None</p>';
-      const message = '<strong>Teams missing Order:</strong>' + list(missingTeams, x => '<li>' + String(x.Name).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ' (TeamId ' + Number(x.TeamId) + ')</li>') + '<strong>Team Members missing Order:</strong>' + list(missingMembers, x => '<li>' + String(x.TeamName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ' — ' + String(x.LastName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ', ' + String(x.FirstName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</li>');
+      const message = '<strong>Team Members missing Order:</strong>' + list(missingMembers, x => '<li>' + String(x.TeamName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ' — ' + String(x.LastName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + ', ' + String(x.FirstName).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</li>');
       self.postMessage({ id, ok: true, data: { message, missingTeams: missingTeams.length, missingMembers: missingMembers.length } });
     } else if (type === 'insertTeamMember') {
       if (!rows('SELECT TeamId FROM Teams WHERE TeamId=? AND Active=1', [requestPayload.TeamId]).length) throw new Error('Only active teams can have new memberships.');

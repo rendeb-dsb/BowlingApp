@@ -154,7 +154,8 @@
     .frame-rolls input:last-child { margin-right:0; }
     .frame-score { background:#102f49; color:#fff; height:48px; }
     .frame-score input { width:100%; max-width:54px; box-sizing:border-box; text-align:center; padding:3px 1px; min-height:30px; font-size:16px; }
-    #scoreDetailsTableWrap input.details-active-input { outline:3px solid #0b6388; background:#e5f7ff; }\n    .details-keypad { margin:12px 0 8px; padding:10px; border:1px solid #263746; border-radius:8px; background:#e4eef6; position:sticky; bottom:0; z-index:20; box-shadow:0 -2px 8px rgba(0,0,0,.12); }
+    #scoreDetailsTableWrap input.details-active-input { outline:3px solid #0b6388; background:#e5f7ff; }
+    .details-keypad { margin:12px 0 8px; padding:10px; border:1px solid #263746; border-radius:8px; background:#e4eef6; position:sticky; bottom:0; z-index:20; box-shadow:0 -2px 8px rgba(0,0,0,.12); }
     .details-marks { display:flex; flex-wrap:wrap; gap:8px 14px; margin:12px 0 6px; border:1px solid #8da0ad; border-radius:7px; padding:8px; }
     .details-marks legend { font-weight:600; font-size:13px; }
     .details-marks label { display:flex; align-items:center; gap:4px; font-size:13px; }
@@ -181,11 +182,31 @@
     .match-select-cell input[type="radio"] { width:18px; height:18px; margin:0; vertical-align:middle; }
     .lane-list tbody tr.selected-row { outline:2px solid #2e6f95; outline-offset:-2px; }
 
-  </style>
+  
+    body.details-open {height:100dvh; min-height:0; overflow:hidden;}
+    body.details-open main {overflow:hidden; min-width:0; padding:6px;}
+    body.details-open .menu-bar {overflow:hidden; flex-shrink:0;}
+    body.details-open .topbar, body.details-open .footer {flex-shrink:0;}
+    #scoreDetailsScreen {min-width:0; overflow:hidden;}
+    #scoreDetailsTableWrap {overflow-x:auto; overflow-y:hidden;}
+    #scoreDetailsScreen .screen-titlebar {padding:4px 0; margin-bottom:4px;}
+    #scoreDetailsScreen .details-toolbar {margin:4px 0;}
+    #scoreDetailsScreen .details-keypad {position:static; margin:4px 0; padding:4px;}
+    #scoreDetailsScreen .details-keypad button {min-height:clamp(24px,5dvh,46px); padding:2px;}
+    #scoreDetailsScreen .details-keypad-grid {gap:4px;}
+    #scoreDetailsScreen .details-marks {margin:4px 0; padding:4px; gap:4px 10px;}
+    #scoreDetailsScreen .list-note {display:none;}
+    #detailsMarks label:has([value="split"]) {color:#c00;}
+    #detailsMarks label:has([value="wide-split"]) {color:#087b32;}
+    #detailsMarks label:has([value="stacked-wood"]) {color:#b85b00;}
+    .pin-dot {color:#d00; font-size:14px;}
+    @media(max-height:650px) {body.details-open .footer {display:none;} #scoreDetailsScreen .frame-rolls {height:34px;} #scoreDetailsScreen .frame-score {height:32px;} #scoreDetailsScreen .details-keypad button {font-size:15px;} }
+    .stats-wrap {overflow-x:auto;} .stats-wrap table {width:max-content; min-width:100%;} .stats-wrap td:not(:first-child) {text-align:right;}
+    </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v69</div>
+    <div class="version">b1v70</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -213,6 +234,7 @@
     <button class="menu-button" id="leaguesButton" aria-pressed="false">Leagues</button>
     <button class="menu-button" id="teamsButton" aria-pressed="false">Teams</button>
     <button class="menu-button" id="teamMembersButton" aria-pressed="false">Team Members</button>
+    <button class="menu-button" id="statsButton" aria-pressed="false">Stats</button>
     <button class="menu-button" id="matchesButton" aria-pressed="false">Matches</button>
   </nav>
 
@@ -222,9 +244,10 @@
     <section class="home-panel" id="homePanel" aria-label="Bowling home screen">
       <img class="home-art" src="./images/bowling-home.png" alt="Colorful bowling alley with a smiling blue bowling ball and bowling pins">
     </section>
+    <section class="display-screen" id="statsScreen"><div class="screen-titlebar"><h2>Stats</h2></div><label>Session / game: <select id="statsGame"></select></label><div id="statsContent"></div></section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v69</strong></p>
+      <p>Application version: <strong>b1v70</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -405,8 +428,8 @@
         <legend>Mark selected throw (tap again to remove)</legend>
         <label><input type="radio" name="detailsMark" value="split">Split</label>
         <label><input type="radio" name="detailsMark" value="wide-split">Wide Split</label>
-        <label><input type="radio" name="detailsMark" value="seven-pin">Seven pin</label>
-        <label><input type="radio" name="detailsMark" value="ten-pin">Ten pin</label>
+        <label><input type="radio" name="detailsMark" value="seven-pin"><span><span class="pin-dot">●</span> 7-pin</span></label>
+        <label><input type="radio" name="detailsMark" value="ten-pin"><span>10-pin <span class="pin-dot">●</span></span></label>
         <label><input type="radio" name="detailsMark" value="stacked-wood">Stacked Wood</label>
       </fieldset>
       <div class="details-keypad" id="detailsKeypad" aria-label="Score details keypad">
@@ -428,7 +451,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v69</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v70</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -522,6 +545,8 @@
       matchFormScreen.style.display = 'none';
       scoresScreen.style.display = 'none';
       scoreDetailsScreen.style.display = 'none';
+      document.body.classList.remove("details-open");
+      document.getElementById("statsScreen").style.display="none";
     }
     function setLanesActive(active) {
       lanesButton.classList.toggle('active', active);
@@ -1355,6 +1380,7 @@
         return data;
       } catch (_) { return fallback; }
     }
+    let ourScoreTeamId = null, detailsLoading = false, detailsRenderToken = 0;
     function openBowlerFrameDetails(bowlerId) {
       const bowler = scoreBowlers.find(item => Number(item.BowlerId) === Number(bowlerId));
       if (!bowler) return;
@@ -1365,7 +1391,7 @@
       selector.innerHTML = Array.from({length: scoreGameCount}, (_, i) => `<option value="${i+1}">Game ${i+1}</option>`).join('');
       selector.value = String(scoreDetailsGame);
       document.getElementById('scoreDetailsTitle').textContent = `Details - ${bowler.FullName}`;
-      hideScreens(); scoreDetailsScreen.style.display = 'block'; currentEntity = 'ScoreDetails';
+      hideScreens(); scoreDetailsScreen.style.display = 'block'; document.body.classList.add('details-open'); window.scrollTo(0,0); document.getElementById('displayArea').scrollTop=0; currentEntity = 'ScoreDetails';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
       renderFrameDetails();
     }
@@ -1518,7 +1544,10 @@
     }
     async function renderFrameDetails() {
       if (!scoreDetailsBowler) return;
+      const token = ++detailsRenderToken; detailsLoading = true; activeDetailsInput = null;
       const saved = await readFrameDetailsFromDatabase(scoreDetailsBowler.BowlerId, scoreDetailsGame);
+      if (token !== detailsRenderToken || currentEntity !== "ScoreDetails") return;
+      detailsLoading = false;
       const frames = Array.from({length:10}, (_, i) => {
         const frame = i + 1, rolls = saved.rolls?.[frame] || [], rollCount = frame === 10 ? 3 : 2;
         const rollInputs = Array.from({length:rollCount}, (_, j) => `<span class="marked-roll"><input type="text" maxlength="1" readonly autocomplete="off" aria-label="Frame ${frame}, ball ${j+1}" data-frame-roll="${frame}" data-roll-index="${j}" value="${escapeHtml(rolls[j] || '')}"></span>`).join('');
@@ -1565,7 +1594,24 @@
         refreshDetailsMarks();
       });
     });
+    function frameComplete(frame, rolls) {
+      const [a,b,c] = rolls;
+      if (!a) return false;
+      if (frame < 10) return a === 'X' || !!b;
+      if (!b) return false;
+      return a === 'X' || b === '/' ? !!c : true;
+    }
+    function rotateBowler(frame) {
+      if (activeScoreMatchType !== 'M' || Number(scoreDetailsBowler.TeamId) !== ourScoreTeamId) return false;
+      const roster = scoreBowlers.filter(b => Number(b.TeamId) === ourScoreTeamId);
+      if (roster.length !== 4) return false;
+      const i = roster.findIndex(b => Number(b.BowlerId) === Number(scoreDetailsBowler.BowlerId));
+      if (i < 0 || (frame === 10 && i === roster.length-1)) return false;
+      openBowlerFrameDetails(roster[(i+1)%roster.length].BowlerId);
+      return true;
+    }
     function enterDetailsKey(key) {
+      if (detailsLoading) return;
       const list = detailsInputsInEntryOrder();
       if (!activeDetailsInput || !list.includes(activeDetailsInput)) selectDetailsInput(nextActiveDetailsInput());
       const input = activeDetailsInput;
@@ -1581,9 +1627,14 @@
       if (isRoll) {
         const val = String(key).toUpperCase();
         if (!/^[1-9X/\\-]$/.test(val)) return;
+        const frame = Number(input.dataset.frameRoll);
+        const frameCells = list.filter(el => Number(el.dataset.frameRoll) === frame);
+        const wasComplete = frameComplete(frame, frameCells.map(el=>el.value));
         input.value = val;
+        if (frame < 10 && Number(input.dataset.rollIndex) === 0 && val === 'X') frameCells[1].value = '';
         calculateFrameScores();
         persistFrameDetailsFromScreen();
+        if (!wasComplete && frameComplete(frame, frameCells.map(el=>el.value)) && rotateBowler(frame)) return;
         if (val === 'X' && Number(input.dataset.frameRoll) < 10 && Number(input.dataset.rollIndex) === 0) {
           const nextFrame = Number(input.dataset.frameRoll) + 1;
           const next = document.querySelector(`#scoreDetailsTableWrap [data-frame-roll="${nextFrame}"][data-roll-index="0"]`);
@@ -1604,7 +1655,7 @@
       if (button) enterDetailsKey(button.dataset.padKey);
     });
     function persistFrameDetailsFromScreen() {
-      if (!scoreDetailsBowler) return;
+      if (!scoreDetailsBowler || detailsLoading) return;
       const rolls = {}, scores = {};
       document.querySelectorAll('#scoreDetailsTableWrap [data-frame-roll]').forEach(input => {
         const frame = Number(input.dataset.frameRoll), index = Number(input.dataset.rollIndex);
@@ -1618,6 +1669,7 @@
       dbCall('saveScoreFrameDetails', { MatchId: activeScoreMatch, BowlerId: Number(scoreDetailsBowler.BowlerId), GameNbr: Number(scoreDetailsGame), Details: data }).catch(() => {});
     }
     document.getElementById('detailsGameSelect').addEventListener('change', event => {
+      if (detailsLoading) return;
       persistFrameDetailsFromScreen(); scoreDetailsGame = Number(event.target.value) || 1; renderFrameDetails();
     });
     document.getElementById('backFromScoreDetailsButton').addEventListener('click', () => {
@@ -1633,7 +1685,7 @@
       try {
         const detail = await dbCall('getMatchForScores', { MatchId: matchId });
         if (!detail) return showAppMessage('The selected match could not be found.');
-        activeScoreMatch = matchId; activeScoreMatchType = detail.MatchType;
+        activeScoreMatch = matchId; activeScoreMatchType = detail.MatchType; ourScoreTeamId = Number(detail.OurTeamId);
         scoreDetailsGame = 1; lastScoresEntryCell = null;
         const bowlers = await dbCall('listMatchBowlers', { OurTeamId: detail.OurTeamId, OppoTeamId: detail.OppoTeamId });
         const distinctBowlerCount = new Set(bowlers.map(b => Number(b.BowlerId))).size;
@@ -1788,7 +1840,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v69', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v70', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -2127,6 +2179,63 @@
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
     }
+
+    let wakeLock = null, wakePending = false;
+    async function keepBowlingLit() {
+      if (document.hidden || wakePending || (wakeLock && !wakeLock.released) || !navigator.wakeLock) return;
+      wakePending = true;
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {} finally { wakePending = false; }
+    }
+    document.addEventListener('visibilitychange', keepBowlingLit);
+    window.addEventListener('focus', keepBowlingLit);
+    document.addEventListener('pointerdown', keepBowlingLit);
+    keepBowlingLit();
+    let statsBackup;
+    async function showStats() {
+      hideScreens(); currentEntity='Stats'; document.getElementById('statsScreen').style.display='block'; closeMenu();
+      setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(false);
+      const content=document.getElementById('statsContent'); content.textContent='Loading statistics…';
+      try {
+        statsBackup=await dbCall('exportDatabase');
+        const t=Object.fromEntries(statsBackup.tables.map(x=>[x.name,x.rows]));
+        const games=[...new Set(t.Scores.map(x=>`${x.MatchId}:${x.GameNbr}`))];
+        const dates=new Map(t.Matches.map(x=>[x.MatchId,x.Date]));
+        games.sort((a,b)=>String(dates.get(Number(b.split(':')[0]))).localeCompare(String(dates.get(Number(a.split(':')[0])))) || Number(b.split(':')[1])-Number(a.split(':')[1]));
+        const sel=document.getElementById('statsGame'); sel.innerHTML=games.map(k=>`<option value="${k}">${escapeHtml(dates.get(Number(k.split(':')[0]))||'')} · Game ${k.split(':')[1]}</option>`).join('');
+        const active=`${activeScoreMatch}:${scoreDetailsGame}`; if(games.includes(active)) sel.value=active;
+        renderStats();
+      } catch(e) {content.textContent='Unable to load statistics: '+e.message;}
+    }
+    function renderStats() {
+      const t=Object.fromEntries(statsBackup.tables.map(x=>[x.name,x.rows]));
+      const teamIds=new Set(t.Teams.filter(x=>String(x.Name).toLowerCase()==='orioles').map(x=>x.TeamId));
+      const ids=new Set(t.TeamMembers.filter(x=>teamIds.has(x.TeamId)).map(x=>x.BowlerId));
+      const selected=document.getElementById('statsGame').value;
+      const frames=new Map(); for(const d of t.ScoreFrameDetails) {if(!frames.has(d.ScoreId)) frames.set(d.ScoreId,[]); frames.get(d.ScoreId).push(d);}
+      const marks=['seven-pin','ten-pin','split','stacked-wood','wide-split'];
+      const table=(heads,rows)=>`<div class="stats-wrap"><table class="lane-list"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(v=>`<td>${escapeHtml(String(v))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+      const totals=[], markRows=[];
+      for(const b of t.Bowlers.filter(x=>ids.has(x.BowlerId))) {
+        let strikes=0,spares=0,attempts=0; const streaks=Array(13).fill(0), all=Array(5).fill(0), current=Array(5).fill(0);
+        for(const sc of t.Scores.filter(x=>x.BowlerId===b.BowlerId && x.Blind!=='B')) {
+          let run=0; const finish=()=>{if(run>=3)streaks[run]++;run=0;};
+          const ds=(frames.get(sc.ScoreId)||[]).sort((a,b)=>a.FrameNumber-b.FrameNumber);
+          for(let f=1;f<=10;f++) {const d=ds.find(x=>x.FrameNumber===f); if(!d){finish();continue;} const a=d.Ball1,b=d.Ball2,c=d.Ball3;
+            const delivery=v=>{if(v==='X'){strikes++;run++;}else finish();};
+            delivery(a); if(a && a!=='X' && b){attempts++;if(b==='/')spares++;}
+            if(f===10){if(a==='X'){delivery(b);if(b && b!=='X' && c){attempts++;if(c==='/')spares++;}} if(c && (a==='X'||b==='/'))delivery(c);}
+          } finish();
+          let saved={};try{saved=JSON.parse(localStorage.getItem(`bowling-roll-marks-${sc.MatchId}-${sc.BowlerId}-${sc.GameNbr}`)||'{}');}catch(_){}
+          for(const [key,v] of Object.entries(saved)){const [f,i]=key.split(':').map(Number);const d=ds.find(x=>x.FrameNumber===f);if(!d || !d[['Ball1','Ball2','Ball3'][i]])continue;const n=marks.indexOf(v);if(n>=0){all[n]++;if(`${sc.MatchId}:${sc.GameNbr}`===selected)current[n]++;}}
+        }
+        const name=b.FirstName+' '+b.LastName; totals.push([name,strikes,spares,`${spares}/${attempts}${attempts?' ('+Math.round(100*spares/attempts)+'%)':''}`,...streaks.slice(3)]);markRows.push([name,...current.map((v,i)=>`${v} / ${all[i]}`)]);
+      }
+      const rick=t.Bowlers.find(x=>x.FirstName==='Rick'&&x.LastName==='Lester'), don=t.Bowlers.find(x=>x.FirstName==='Don'&&x.LastName==='Bedner');let rw=0,dw=0,ties=0;
+      if(rick&&don)for(const r of t.Scores.filter(x=>x.BowlerId===rick.BowlerId&&x.Blind!=='B')){const d=t.Scores.find(x=>x.BowlerId===don.BowlerId&&x.MatchId===r.MatchId&&x.GameNbr===r.GameNbr&&x.Blind!=='B');if(d){if(r.Score>d.Score)rw++;else if(r.Score<d.Score)dw++;else ties++;}}
+      document.getElementById('statsContent').innerHTML='<h3>Orioles · All games</h3>'+table(['Bowler','Strikes','Spares','Conversions','Turkeys','Hambones','Yatzees','Six-pack','7','8','9','10','11','12'],totals)+'<p>Strike streaks counted once at their final length, including tenth-frame bonus strikes. Conversions = successful spares / recorded attempts.</p><h3>Marks · Selected game / All games</h3>'+table(['Bowler','7-pin','10-pin','Split','Stacked wood','Wide split'],markRows)+'<p>Marks are stored locally on this device.</p><h3>Rick vs. Don</h3><p>Rick wins: '+rw+' · Don wins: '+dw+' · Ties: '+ties+'</p><p>Same session and game, scratch scores, excluding blind scores.</p>';
+    }
+    document.getElementById('statsButton').addEventListener('click',showStats);
+    document.getElementById('statsGame').addEventListener('change',renderStats);
   </script>
 </body>
 </html>
