@@ -100,6 +100,15 @@ async function initializeOnce() {
     PRIMARY KEY (ScoreId, FrameNumber),
     FOREIGN KEY (ScoreId) REFERENCES Scores(ScoreId) ON DELETE CASCADE
   );`);
+  db.exec(`CREATE TABLE IF NOT EXISTS ThrowMarks (
+    MatchId INTEGER NOT NULL REFERENCES Matches(MatchId) ON DELETE CASCADE,
+    BowlerId INTEGER NOT NULL REFERENCES Bowlers(BowlerId) ON DELETE CASCADE,
+    GameNbr INTEGER NOT NULL CHECK(GameNbr>0),
+    FrameNumber INTEGER NOT NULL CHECK(FrameNumber BETWEEN 1 AND 10),
+    BallNumber INTEGER NOT NULL CHECK(BallNumber BETWEEN 1 AND 2 OR (FrameNumber=10 AND BallNumber=3)),
+    Mark TEXT NOT NULL CHECK(Mark IN ('split','wide-split','seven-pin','ten-pin','stacked-wood')),
+    PRIMARY KEY(MatchId,BowlerId,GameNbr,FrameNumber,BallNumber)
+  )`);
   // Upgrade existing b1v20 databases without removing saved league records.
   const leagueColumns = rows('PRAGMA table_info(Leagues)').map(column => column.name);
   if (!leagueColumns.includes('EndDate')) {
@@ -160,18 +169,19 @@ self.onmessage = async event => {
     } else if (!db) {
       throw new Error('The BowlingDB database is not initialized.');
     } else if (type === 'exportDatabase') {
-      const tableNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
+      const tableNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails','ThrowMarks'];
       const tables = tableNames.map(name => {
         const columns = rows(`PRAGMA table_info(\"${name}\")`).map(column => column.name);
         return { name, columns, rows: rows(`SELECT * FROM \"${name}\"`) };
       });
-      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v70', exportedAt: new Date().toISOString(), tables } });
+      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v71', exportedAt: new Date().toISOString(), tables } });
     } else if (type === 'importDatabase') {
       const backup = requestPayload;
-      const expectedNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
+      const expectedNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails','ThrowMarks'];
       if (!backup || backup.format !== 'BowlingDB-JSON' || !Array.isArray(backup.tables)) throw new Error('The file is not a recognized BowlingDB export.');
       const supplied = new Map(backup.tables.map(table => [table && table.name, table]));
-      if (supplied.size !== expectedNames.length || expectedNames.some(name => !supplied.has(name))) throw new Error('The backup must contain all eight BowlingDB tables. No data was changed.');
+      if (!supplied.has('ThrowMarks') && supplied.size === expectedNames.length-1) supplied.set('ThrowMarks',{name:'ThrowMarks',columns:rows('PRAGMA table_info(ThrowMarks)').map(c=>c.name),rows:[]});
+      if (supplied.size !== expectedNames.length || expectedNames.some(name => !supplied.has(name))) throw new Error('The backup must contain all required BowlingDB tables. No data was changed.');
       for (const name of expectedNames) {
         const table = supplied.get(name);
         if (!Array.isArray(table.columns) || !Array.isArray(table.rows)) throw new Error(`The ${name} table data is incomplete.`);
@@ -181,8 +191,8 @@ self.onmessage = async event => {
           if (!record || typeof record !== 'object' || Array.isArray(record) || Object.keys(record).length !== currentColumns.length || currentColumns.some(column => !Object.prototype.hasOwnProperty.call(record, column))) throw new Error(`A record in ${name} has missing or unexpected fields.`);
         }
       }
-      const deleteOrder = ['ScoreFrameDetails','Scores','Matches','TeamMembers','Teams','Leagues','Bowlers','Lanes'];
-      const insertOrder = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails'];
+      const deleteOrder = ['ThrowMarks','ScoreFrameDetails','Scores','Matches','TeamMembers','Teams','Leagues','Bowlers','Lanes'];
+      const insertOrder = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails','ThrowMarks'];
       let recordCount = 0;
       db.exec('PRAGMA foreign_keys = OFF');
       try {
@@ -342,6 +352,21 @@ self.onmessage = async event => {
         ORDER BY CASE WHEN TeamMembers.TeamId=? THEN 0 ELSE 1 END, TeamMembers."Order" IS NULL, TeamMembers."Order", Bowlers.LastName COLLATE NOCASE, Bowlers.FirstName COLLATE NOCASE, Bowlers.BowlerId`, [requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.OurTeamId]) });
     } else if (type === 'listScores') {
       self.postMessage({ id, ok: true, data: rows('SELECT ScoreId, MatchId, GameNbr, BowlerId, Score, Blind FROM Scores WHERE MatchId=? ORDER BY GameNbr, BowlerId', [requestPayload.MatchId]) });
+    } else if (type === 'getThrowMarks') {
+      self.postMessage({id,ok:true,data:rows('SELECT FrameNumber,BallNumber,Mark FROM ThrowMarks WHERE MatchId=? AND BowlerId=? AND GameNbr=?',[requestPayload.MatchId,requestPayload.BowlerId,requestPayload.GameNbr])});
+    } else if (type === 'saveThrowMark') {
+      const {MatchId,BowlerId,GameNbr,FrameNumber,BallNumber,Mark}=requestPayload;
+      const bind=[MatchId,BowlerId,GameNbr,FrameNumber,BallNumber];
+      if (Mark) db.exec({sql:'INSERT OR REPLACE INTO ThrowMarks VALUES (?,?,?,?,?,?)',bind:[...bind,Mark]});
+      else db.exec({sql:'DELETE FROM ThrowMarks WHERE MatchId=? AND BowlerId=? AND GameNbr=? AND FrameNumber=? AND BallNumber=?',bind});
+      self.postMessage({id,ok:true,data:true});
+    } else if (type === 'migrateThrowMarks') {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        for(const m of requestPayload) db.exec({sql:'INSERT INTO ThrowMarks VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING',bind:m});
+        db.exec('COMMIT');
+      } catch(e) {db.exec('ROLLBACK');throw e;}
+      self.postMessage({id,ok:true,data:true});
     } else if (type === 'getScoreFrameDetails') {
       const row = rows(`SELECT D.FrameNumber, D.Ball1, D.Ball2, D.Ball3, D.FrameScore
         FROM ScoreFrameDetails D JOIN Scores S ON S.ScoreId=D.ScoreId

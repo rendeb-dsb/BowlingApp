@@ -201,12 +201,16 @@
     #detailsMarks label:has([value="stacked-wood"]) {color:#b85b00;}
     .pin-dot {color:#d00; font-size:14px;}
     @media(max-height:650px) {body.details-open .footer {display:none;} #scoreDetailsScreen .frame-rolls {height:34px;} #scoreDetailsScreen .frame-score {height:32px;} #scoreDetailsScreen .details-keypad button {font-size:15px;} }
+    html, body {max-width:100%; overflow-x:hidden;}
+    .menu-bar {flex-wrap:wrap; min-width:0;}
+    #displayArea, #matchesListScreen, #matchesListContent {min-width:0; max-width:100%;}
+    #matchesListContent .lane-list-wrap {overflow-x:auto;}
     .stats-wrap {overflow-x:auto;} .stats-wrap table {width:max-content; min-width:100%;} .stats-wrap td:not(:first-child) {text-align:right;}
     </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v70</div>
+    <div class="version">b1v71</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -234,8 +238,8 @@
     <button class="menu-button" id="leaguesButton" aria-pressed="false">Leagues</button>
     <button class="menu-button" id="teamsButton" aria-pressed="false">Teams</button>
     <button class="menu-button" id="teamMembersButton" aria-pressed="false">Team Members</button>
-    <button class="menu-button" id="statsButton" aria-pressed="false">Stats</button>
     <button class="menu-button" id="matchesButton" aria-pressed="false">Matches</button>
+    <button class="menu-button" id="statsButton" aria-pressed="false">Stats</button>
   </nav>
 
   <input id="databaseImportFile" type="file" accept=".json,application/json" hidden>
@@ -247,7 +251,7 @@
     <section class="display-screen" id="statsScreen"><div class="screen-titlebar"><h2>Stats</h2></div><label>Session / game: <select id="statsGame"></select></label><div id="statsContent"></div></section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v70</strong></p>
+      <p>Application version: <strong>b1v71</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -451,7 +455,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v70</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v71</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1035,8 +1039,16 @@
     async function showMatchesList() {
       currentEntity = 'Matches'; hideScreens(); matchesListScreen.style.display = 'block';
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(true); closeMenu();
-      try { await ensureDatabaseReady(); await refreshMatches(); }
+      resetMatchesScroll();
+      try { await ensureDatabaseReady(); await refreshMatches(); resetMatchesScroll(); requestAnimationFrame(resetMatchesScroll); }
       catch (error) { document.getElementById('matchesDbStatus').textContent = 'Unable to read BowlingDB: ' + error.message; }
+    }
+    function resetMatchesScroll() {
+      if(currentEntity!=='Matches') return;
+      window.scrollTo(0,window.scrollY); document.documentElement.scrollLeft=0; document.body.scrollLeft=0;
+      document.getElementById('displayArea').scrollLeft=0;
+      matchesListScreen.scrollLeft=0;
+      const wrap=document.querySelector('#matchesListContent .lane-list-wrap'); if(wrap) wrap.scrollLeft=0;
     }
     let selectedMatchId = null;
     let editingMatchId = null;
@@ -1546,7 +1558,11 @@
       if (!scoreDetailsBowler) return;
       const token = ++detailsRenderToken; detailsLoading = true; activeDetailsInput = null;
       const saved = await readFrameDetailsFromDatabase(scoreDetailsBowler.BowlerId, scoreDetailsGame);
+      let markRows;
+      try {await migrateLegacyMarks(); markRows=await dbCall('getThrowMarks',markIdentity());}
+      catch(e){detailsLoading=false;showAppMessage('Unable to load throw markings: '+e.message);return;}
       if (token !== detailsRenderToken || currentEntity !== "ScoreDetails") return;
+      currentThrowMarks=Object.fromEntries(markRows.map(m=>[`${m.FrameNumber}:${m.BallNumber-1}`,m.Mark]));
       detailsLoading = false;
       const frames = Array.from({length:10}, (_, i) => {
         const frame = i + 1, rolls = saved.rolls?.[frame] || [], rollCount = frame === 10 ? 3 : 2;
@@ -1562,12 +1578,19 @@
       selectDetailsInput(nextActiveDetailsInput());
       persistFrameDetailsFromScreen();
     }
-    function detailsMarksKey() {
-      return `bowling-roll-marks-${activeScoreMatch}-${scoreDetailsBowler?.BowlerId}-${scoreDetailsGame}`;
-    }
-    function loadDetailsMarks() {
-      try { return JSON.parse(localStorage.getItem(detailsMarksKey()) || '{}') || {}; }
-      catch (_) { return {}; }
+    let currentThrowMarks = {};
+    function markIdentity() {return {MatchId:activeScoreMatch,BowlerId:Number(scoreDetailsBowler.BowlerId),GameNbr:scoreDetailsGame};}
+    function loadDetailsMarks() {return currentThrowMarks;}
+    async function migrateLegacyMarks() {
+      const keys=Object.keys(localStorage).filter(k=>/^bowling-roll-marks-\d+-\d+-\d+$/.test(k));
+      for(const key of keys) {
+        const ids=key.match(/(\d+)-(\d+)-(\d+)$/).slice(1).map(Number);
+        try {
+          const old=JSON.parse(localStorage.getItem(key)||'{}');
+          const records=Object.entries(old).map(([k,v])=>{const [f,i]=k.split(':').map(Number);return [...ids,f,i+1,v];});
+          await dbCall('migrateThrowMarks',records); localStorage.removeItem(key);
+        } catch(e) {throw new Error('Legacy throw marks could not be migrated: '+key+' · '+e.message);}
+      }
     }
     function refreshDetailsMarks() {
       const marks = loadDetailsMarks();
@@ -1583,15 +1606,19 @@
     let previousDetailsMark = '';
     document.querySelectorAll('input[name="detailsMark"]').forEach(radio => {
       radio.addEventListener('pointerdown', () => { previousDetailsMark = radio.checked ? radio.value : ''; });
-      radio.addEventListener('click', () => {
-        if (!activeDetailsInput) return;
-        const marks = loadDetailsMarks();
+      radio.addEventListener('click', async () => {
+        if (!activeDetailsInput || detailsLoading) return;
+        const marks = {...loadDetailsMarks()};
+        const identity=markIdentity(); const token=detailsRenderToken;
         const key = `${activeDetailsInput.dataset.frameRoll}:${activeDetailsInput.dataset.rollIndex}`;
         if (previousDetailsMark === radio.value) delete marks[key];
         else marks[key] = radio.value;
-        localStorage.setItem(detailsMarksKey(), JSON.stringify(marks));
         previousDetailsMark = '';
-        refreshDetailsMarks();
+        const [f,i]=key.split(':').map(Number);
+        try {await dbCall('saveThrowMark',{...identity,FrameNumber:f,BallNumber:i+1,Mark:marks[key]||null});
+          if(token===detailsRenderToken){currentThrowMarks=marks;refreshDetailsMarks();}
+        } catch(e){if(token===detailsRenderToken)refreshDetailsMarks();showAppMessage('Unable to save throw marking: '+e.message);}
+
       });
     });
     function frameComplete(frame, rolls) {
@@ -1840,7 +1867,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v70', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v71', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
@@ -1876,6 +1903,7 @@
     }
     async function exportBowlingDatabase() {
       await ensureDatabaseReady();
+      await migrateLegacyMarks();
       const backup = await dbCall('exportDatabase');
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1904,6 +1932,7 @@
         showAppConfirm(`Import ${file.name}?\n\nThis will REPLACE all current BowlingDB records in all tables. This cannot be undone. Make sure you have exported a backup of the current database first.\n\n${counts}`, async () => {
           try {
             await ensureDatabaseReady();
+            await migrateLegacyMarks();
             const result = await dbCall('importDatabase', backup);
             showAppMessage(`Import completed successfully.\n\n${result.tables} tables and ${result.records} records were imported. The app will reload to show the imported data.`, () => window.location.reload());
           } catch (error) {
@@ -2169,6 +2198,7 @@
         const info = await ensureDatabaseReady();
         dbReady = true;
         dbStatus.textContent = `BowlingDB ready${info.version ? ' · SQLite ' + info.version : ''}`;
+        await migrateLegacyMarks();
         await refreshLanes();
       } catch (error) {
         dbStatus.textContent = 'BowlingDB could not be opened: ' + error.message;
@@ -2196,6 +2226,7 @@
       setLanesActive(false); setBowlersActive(false); setLeaguesActive(false); setTeamsActive(false); setTeamMembersActive(false); setMatchesActive(false);
       const content=document.getElementById('statsContent'); content.textContent='Loading statistics…';
       try {
+        await ensureDatabaseReady(); await migrateLegacyMarks();
         statsBackup=await dbCall('exportDatabase');
         const t=Object.fromEntries(statsBackup.tables.map(x=>[x.name,x.rows]));
         const games=[...new Set(t.Scores.map(x=>`${x.MatchId}:${x.GameNbr}`))];
@@ -2225,14 +2256,14 @@
             delivery(a); if(a && a!=='X' && b){attempts++;if(b==='/')spares++;}
             if(f===10){if(a==='X'){delivery(b);if(b && b!=='X' && c){attempts++;if(c==='/')spares++;}} if(c && (a==='X'||b==='/'))delivery(c);}
           } finish();
-          let saved={};try{saved=JSON.parse(localStorage.getItem(`bowling-roll-marks-${sc.MatchId}-${sc.BowlerId}-${sc.GameNbr}`)||'{}');}catch(_){}
+          const saved=Object.fromEntries(t.ThrowMarks.filter(m=>m.MatchId===sc.MatchId&&m.BowlerId===sc.BowlerId&&m.GameNbr===sc.GameNbr).map(m=>[`${m.FrameNumber}:${m.BallNumber-1}`,m.Mark]));
           for(const [key,v] of Object.entries(saved)){const [f,i]=key.split(':').map(Number);const d=ds.find(x=>x.FrameNumber===f);if(!d || !d[['Ball1','Ball2','Ball3'][i]])continue;const n=marks.indexOf(v);if(n>=0){all[n]++;if(`${sc.MatchId}:${sc.GameNbr}`===selected)current[n]++;}}
         }
         const name=b.FirstName+' '+b.LastName; totals.push([name,strikes,spares,`${spares}/${attempts}${attempts?' ('+Math.round(100*spares/attempts)+'%)':''}`,...streaks.slice(3)]);markRows.push([name,...current.map((v,i)=>`${v} / ${all[i]}`)]);
       }
       const rick=t.Bowlers.find(x=>x.FirstName==='Rick'&&x.LastName==='Lester'), don=t.Bowlers.find(x=>x.FirstName==='Don'&&x.LastName==='Bedner');let rw=0,dw=0,ties=0;
       if(rick&&don)for(const r of t.Scores.filter(x=>x.BowlerId===rick.BowlerId&&x.Blind!=='B')){const d=t.Scores.find(x=>x.BowlerId===don.BowlerId&&x.MatchId===r.MatchId&&x.GameNbr===r.GameNbr&&x.Blind!=='B');if(d){if(r.Score>d.Score)rw++;else if(r.Score<d.Score)dw++;else ties++;}}
-      document.getElementById('statsContent').innerHTML='<h3>Orioles · All games</h3>'+table(['Bowler','Strikes','Spares','Conversions','Turkeys','Hambones','Yatzees','Six-pack','7','8','9','10','11','12'],totals)+'<p>Strike streaks counted once at their final length, including tenth-frame bonus strikes. Conversions = successful spares / recorded attempts.</p><h3>Marks · Selected game / All games</h3>'+table(['Bowler','7-pin','10-pin','Split','Stacked wood','Wide split'],markRows)+'<p>Marks are stored locally on this device.</p><h3>Rick vs. Don</h3><p>Rick wins: '+rw+' · Don wins: '+dw+' · Ties: '+ties+'</p><p>Same session and game, scratch scores, excluding blind scores.</p>';
+      document.getElementById('statsContent').innerHTML='<h3>Orioles · All games</h3>'+table(['Bowler','Strikes','Spares','Conversions','Turkeys','Hambones','Yatzees','Six-pack','7','8','9','10','11','12'],totals)+'<p>Strike streaks counted once at their final length, including tenth-frame bonus strikes. Conversions = successful spares / recorded attempts.</p><h3>Marks · Selected game / All games</h3>'+table(['Bowler','7-pin','10-pin','Split','Stacked wood','Wide split'],markRows)+'<p>Marks are stored in BowlingDB and included in exports.</p><h3>Rick vs. Don</h3><p>Rick wins: '+rw+' · Don wins: '+dw+' · Ties: '+ties+'</p><p>Same session and game, scratch scores, excluding blind scores.</p>';
     }
     document.getElementById('statsButton').addEventListener('click',showStats);
     document.getElementById('statsGame').addEventListener('change',renderStats);
