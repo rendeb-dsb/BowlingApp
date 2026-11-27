@@ -212,7 +212,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v72</div>
+    <div class="version">b1v73</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -253,7 +253,7 @@
     <section class="display-screen" id="statsScreen"><div class="screen-titlebar"><h2>Stats</h2></div><label>Session / game: <select id="statsGame"></select></label><div id="statsContent"></div></section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v72</strong></p>
+      <p>Application version: <strong>b1v73</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -458,7 +458,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v72</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v73</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1071,9 +1071,9 @@
           const displayDate = dateParts ? `${dateParts[2]}/${dateParts[3]}/${dateParts[1]}` : rawDate;
           const id = Number(match.MatchId);
           const checked = Number(selectedMatchId) === id ? ' checked' : '';
-          return `<tr data-match-row="${id}"><td class="match-select-cell"><input type="radio" name="selectedMatch" aria-label="Select match ${id}" data-select-match="${id}"${checked}></td><td><button class="action-button scores-row-button" type="button" data-scores-match="${id}">Scores</button></td><td class="matches-date-cell">${escapeHtml(displayDate)}</td><td>${escapeHtml(match.OppoTeamName)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${match.MatchType === 'P' ? 'Practice' : 'Match'}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td></tr>`;
+          return `<tr data-match-row="${id}"><td class="match-select-cell"><input type="radio" name="selectedMatch" aria-label="Select match ${id}" data-select-match="${id}"${checked}></td><td><button class="action-button scores-row-button" type="button" data-scores-match="${id}">Scores</button></td><td>${match.MatchType === 'P' ? 'Practice' : 'Match'}</td><td class="matches-date-cell">${escapeHtml(displayDate)}</td><td>${escapeHtml(match.OppoTeamName)}</td><td>${escapeHtml(match.OurTeamName)}</td><td>${escapeHtml(match.LocationName)}</td><td>${escapeHtml(match.LeagueName)}</td></tr>`;
         }).join('');
-        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th class="match-select-cell" aria-label="Select"></th><th>Action</th><th class="matches-date-cell">Date</th><th>Opponent Team</th><th>Our Team</th><th>Type</th><th>Location</th><th>League</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        content.innerHTML = `<div class="lane-list-wrap"><table class="lane-list" aria-label="Matches"><thead><tr><th class="match-select-cell" aria-label="Select"></th><th>Action</th><th>Type</th><th class="matches-date-cell">Date</th><th>Opponent Team</th><th>Our Team</th><th>Location</th><th>League</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
         content.querySelectorAll('[data-select-match]').forEach(radio => radio.addEventListener('change', () => {
           selectedMatchId = Number(radio.dataset.selectMatch);
           content.querySelectorAll('tr[data-match-row]').forEach(row => row.classList.toggle('selected-row', Number(row.dataset.matchRow) === selectedMatchId));
@@ -1653,11 +1653,10 @@
       return a === 'X' || b === '/' ? !!c : true;
     }
     function rotateBowler(frame) {
-      if (activeScoreMatchType !== 'M' || Number(scoreDetailsBowler.TeamId) !== ourScoreTeamId) return false;
-      const roster = scoreBowlers.filter(b => Number(b.TeamId) === ourScoreTeamId);
-      if (roster.length !== 4) return false;
+      const eligible = new Set(['paula bedner','don bedner','linda lester','rick lester']);
+      const roster = scoreBowlers.filter(b => eligible.has(String(b.FullName).trim().replace(/\s+/g,' ').toLowerCase()) && savedBlindMap[String(b.BowlerId)] !== 'B');
       const i = roster.findIndex(b => Number(b.BowlerId) === Number(scoreDetailsBowler.BowlerId));
-      if (i < 0 || (frame === 10 && i === roster.length-1)) return false;
+      if (i < 0 || roster.length < 2 || (frame === 10 && i === roster.length-1)) return false;
       openBowlerFrameDetails(roster[(i+1)%roster.length].BowlerId);
       return true;
     }
@@ -1896,7 +1895,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v72', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v73', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
