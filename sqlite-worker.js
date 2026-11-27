@@ -174,7 +174,7 @@ self.onmessage = async event => {
         const columns = rows(`PRAGMA table_info(\"${name}\")`).map(column => column.name);
         return { name, columns, rows: rows(`SELECT * FROM \"${name}\"`) };
       });
-      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v71', exportedAt: new Date().toISOString(), tables } });
+      self.postMessage({ id, ok: true, data: { format: 'BowlingDB-JSON', formatVersion: 1, appVersion: 'b1v72', exportedAt: new Date().toISOString(), tables } });
     } else if (type === 'importDatabase') {
       const backup = requestPayload;
       const expectedNames = ['Lanes','Bowlers','Leagues','Teams','TeamMembers','Matches','Scores','ScoreFrameDetails','ThrowMarks'];
@@ -337,6 +337,19 @@ self.onmessage = async event => {
       db.exec({ sql: 'INSERT INTO Matches (Location, LeagueId, Date, OurTeamId, OppoTeamId, MatchType, LanesUsed, Temp, Humidity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         bind: [requestPayload.Location, requestPayload.LeagueId, requestPayload.Date, requestPayload.OurTeamId, requestPayload.OppoTeamId, requestPayload.MatchType, requestPayload.LanesUsed || null, requestPayload.Temp ?? null, requestPayload.Humidity ?? null] });
       self.postMessage({ id, ok: true, data: { MatchId: db.selectValue('SELECT last_insert_rowid()') } });
+    } else if (type === 'deleteMatch') {
+      const matchId = Number(requestPayload.MatchId);
+      if (!Number.isInteger(matchId) || matchId < 1) throw new Error('Invalid match ID.');
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if (!rows('SELECT MatchId FROM Matches WHERE MatchId=?', [matchId]).length) throw new Error('Match not found.');
+        db.exec({sql:'DELETE FROM ThrowMarks WHERE MatchId=?', bind:[matchId]});
+        db.exec({sql:'DELETE FROM ScoreFrameDetails WHERE ScoreId IN (SELECT ScoreId FROM Scores WHERE MatchId=?)', bind:[matchId]});
+        db.exec({sql:'DELETE FROM Scores WHERE MatchId=?', bind:[matchId]});
+        db.exec({sql:'DELETE FROM Matches WHERE MatchId=?', bind:[matchId]});
+        db.exec('COMMIT');
+      } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
+      self.postMessage({id, ok:true, data:{MatchId:matchId}});
     } else if (type === 'getMatchForChange') {
       self.postMessage({ id, ok: true, data: rows('SELECT MatchId, Location, LeagueId, Date, OurTeamId, OppoTeamId, MatchType, LanesUsed, Temp, Humidity FROM Matches WHERE MatchId=?', [requestPayload.MatchId])[0] || null });
     } else if (type === 'updateMatch') {

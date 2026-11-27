@@ -145,8 +145,10 @@
     .score-details-action-row { display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
     .score-details-button { padding:4px 7px; min-height:29px; font-size:13px; white-space:nowrap; }
     #scoreDetailsTableWrap { overflow-x:auto; width:100%; }
-    .frame-scorecard { border-collapse:separate; border-spacing:2px; table-layout:fixed; min-width:760px; width:100%; }
+    .frame-scorecard { border-collapse:separate; border-spacing:2px; table-layout:fixed; min-width:800px; width:100%; }
     .frame-scorecard th, .frame-scorecard td { border:1px solid #263746; text-align:center; padding:4px 2px; }
+    .frame-scorecard th:nth-child(10) { width:90px; }
+    .details-keypad button.key-flash { background:#17658c; color:white; }
     .frame-scorecard th { background:#dce8ef; font-weight:700; }
     .frame-scorecard .frame-rolls { background:#102f49; color:#fff; height:54px; vertical-align:top; }
     .frame-rolls .roll-inputs { display:flex; justify-content:center; gap:2px; }
@@ -210,7 +212,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="version">b1v71</div>
+    <div class="version">b1v72</div>
     <h1>Bowling</h1>
     <button class="gear" id="settingsButton" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
@@ -251,7 +253,7 @@
     <section class="display-screen" id="statsScreen"><div class="screen-titlebar"><h2>Stats</h2></div><label>Session / game: <select id="statsGame"></select></label><div id="statsContent"></div></section>
     <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
-      <p>Application version: <strong>b1v71</strong></p>
+      <p>Application version: <strong>b1v72</strong></p>
       <div class="score-order-panel" id="scoreOrderPanel">
         <div class="score-order-panel-main">
           <p><strong>Score entry Next-button order</strong></p>
@@ -395,6 +397,7 @@
       </form>
     </section>
     <section class="display-screen" id="matchesListScreen" aria-label="Matches list">
+      <div class="screen-titlebar"><h2>Matches</h2></div>
       <div class="db-status" id="matchesDbStatus">Opening BowlingDB…</div>
       <div class="matches-filter"><label for="showMatchType">Show match type:</label><select id="showMatchType"><option value="A">All</option><option value="M" selected>Match</option><option value="P">Practice</option></select></div>
       <div id="matchesListContent"><div class="lanes-empty">No records to display.</div></div>
@@ -455,7 +458,7 @@
       <div class="app-message-actions" id="appMessageActions"><button class="action-button primary" id="appMessageOk" type="button">OK</button></div>
     </section>
   </div>
-  <div class="footer">Bowling · Initial visual prototype · b1v71</div>
+  <div class="footer">Bowling · Initial visual prototype · b1v72</div>
 
   <script>
     const actionsButton = document.getElementById('actionsButton');
@@ -1087,6 +1090,27 @@
       }
       document.getElementById('matchesDbStatus').textContent = `BowlingDB ready · ${matches.length} match${matches.length === 1 ? '' : 'es'}`;
     }
+    function deleteSelectedMatch() {
+      setMatchesActive(true);
+      if (selectedMatchId == null || matchesListScreen.style.display === 'none') return showAppMessage('Select a match in the Matches list before choosing Delete.');
+      const matchId = selectedMatchId;
+      const row = document.querySelector(`tr[data-match-row="${matchId}"]`);
+      if (!row) return showAppMessage('Select a match before choosing Delete.');
+      const date = row.querySelector('.matches-date-cell').textContent;
+      showAppConfirm(`Delete the selected session dated ${date} (ID ${matchId}) and all its scores, frame details and throw markings? This cannot be undone.`, async () => {
+        try {
+          await dbCall('deleteMatch', { MatchId: matchId });
+          try {
+            for (const key of Object.keys(localStorage)) {
+              if (key === `bowling-score-draft-${matchId}` || key.startsWith(`bowling-frame-details-${matchId}-`) || key.startsWith(`bowling-roll-marks-${matchId}-`)) localStorage.removeItem(key);
+            }
+          } catch (_) {}
+          selectedMatchId = null;
+          await showMatchesList();
+          showAppMessage('Selected match and its related records deleted.');
+        } catch (error) { showAppMessage('Unable to delete the selected match: ' + error.message); }
+      });
+    }
     function showMatchFormMessage(message) {
       const el = document.getElementById('matchFormMessage');
       el.textContent = message; el.classList.add('show');
@@ -1679,7 +1703,12 @@
     }
     document.getElementById('detailsKeypad').addEventListener('click', event => {
       const button = event.target.closest('[data-pad-key]');
-      if (button) enterDetailsKey(button.dataset.padKey);
+      if (button) {
+        button.classList.add('key-flash');
+        clearTimeout(button.flashTimer);
+        button.flashTimer = setTimeout(() => button.classList.remove('key-flash'), 150);
+        enterDetailsKey(button.dataset.padKey);
+      }
     });
     function persistFrameDetailsFromScreen() {
       if (!scoreDetailsBowler || detailsLoading) return;
@@ -1844,7 +1873,7 @@
         } else if (action === 'Change') {
           if (currentEntity === 'Bowlers') showChangeBowler(); else if (currentEntity === 'Leagues') showChangeLeague(); else if (currentEntity === 'Teams') showChangeTeam(); else if (currentEntity === 'TeamMembers') showChangeTeamMember(); else if (currentEntity === 'Matches') showChangeMatch(); else showChangeLane();
         } else if (action === 'Delete') {
-          if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else if (currentEntity === 'Teams') deleteSelectedTeam(); else if (currentEntity === 'TeamMembers') deleteSelectedTeamMember(); else if (currentEntity === 'Matches') showAppMessage('Deleting matches will be implemented in a later build.'); else deleteSelectedLane();
+          if (currentEntity === 'Bowlers') deleteSelectedBowler(); else if (currentEntity === 'Leagues') deleteSelectedLeague(); else if (currentEntity === 'Teams') deleteSelectedTeam(); else if (currentEntity === 'TeamMembers') deleteSelectedTeamMember(); else if (currentEntity === 'Matches') deleteSelectedMatch(); else deleteSelectedLane();
         } else if (action === 'Quit') {
           showAppMessage('To close Bowling, use your device’s app switcher or browser controls.');
         } else if (action === 'Export') {
@@ -1867,7 +1896,7 @@
     let requestId = 0;
     const pending = new Map();
     try {
-      worker = new Worker('./sqlite-worker.js?v=b1v71', { type: 'module' });
+      worker = new Worker('./sqlite-worker.js?v=b1v72', { type: 'module' });
       worker.onmessage = event => {
         const message = event.data || {};
         const resolve = pending.get(message.id);
